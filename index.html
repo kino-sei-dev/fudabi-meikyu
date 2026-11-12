@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>札灯の迷宮</title>
+<style>
+  :root{
+    --bg:#12100d; --panel:#1e1a15; --panel2:#2a241c; --ink:#f2e9d8; --dim:#b8a888;
+    --amber:#ffb545; --amber2:#ff8a3c; --green:#58c472; --red:#e5534b; --line:#453a2c;
+    --card:#f7f2e7; --cardink:#26221c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:#0a0908;color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;}
+  #app{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);}
+  header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0d0b09;border-bottom:1px solid var(--line);}
+  header .title{font-weight:700;letter-spacing:.08em;color:var(--amber);font-size:15px;}
+  header .sp{flex:1;}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;white-space:nowrap;}
+  .chip b{color:var(--amber);}
+  .hpbar{width:86px;height:8px;background:#3a2f22;border-radius:99px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:6px;}
+  .hpbar i{display:block;height:100%;background:linear-gradient(90deg,#e8a13c,#ffb545);}
+  #scene{position:relative;height:300px;background:#000;overflow:hidden;flex:none;}
+  #scene canvas{display:block;width:100%;height:100%;}
+  #sceneLabel{position:absolute;left:10px;bottom:8px;background:rgba(10,8,6,.72);border:1px solid var(--line);
+    border-radius:8px;padding:4px 10px;font-size:13px;color:var(--ink);}
+  #floatLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .floatNum{position:absolute;font-weight:800;font-size:30px;color:#ffd97a;text-shadow:0 2px 8px #000;
+    animation:floatUp 1.1s ease-out forwards;}
+  .floatNum.hurt{color:#ff7a6e;}
+  .floatNum.stop{color:var(--green);font-size:22px;}
+  @keyframes floatUp{0%{transform:translateY(6px);opacity:0}15%{opacity:1}100%{transform:translateY(-56px);opacity:0}}
+  .shake{animation:shake .35s ease-in-out;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  #main{flex:1;padding:12px;overflow-y:auto;}
+  h2.floor{margin:2px 0 8px;font-size:18px;color:var(--amber);letter-spacing:.05em;}
+  p.story{color:var(--dim);font-size:14px;line-height:1.7;margin:4px 0 10px;}
+  .btn{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:12px;padding:13px 14px;margin:8px 0;font-size:15px;cursor:pointer;min-height:52px;}
+  .btn:active{transform:scale(.99);}
+  .btn .sub{display:block;color:var(--dim);font-size:12.5px;margin-top:3px;line-height:1.5;}
+  .btn.primary{background:linear-gradient(180deg,#8a5a1d,#6e4513);border-color:#c98a2e;color:#fff;font-weight:700;text-align:center;}
+  .btn.good{border-color:var(--green);}
+  .btn:disabled{opacity:.45;cursor:default;}
+  .btn.center{text-align:center;}
+  .row{display:flex;gap:8px;}
+  .row .btn{flex:1;}
+  .enemyCard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
+  .enemyCard .ename{font-size:17px;font-weight:700;}
+  .enemyCard .ehp{color:var(--dim);font-size:13px;margin-top:2px;}
+  .intent{margin-top:8px;background:#332619;border:1px solid #6b4d22;border-radius:8px;padding:8px 10px;font-size:14px;}
+  .intent.stopable b{color:var(--green);}
+  .intent b{color:var(--amber);}
+  #preview{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14.5px;line-height:1.65;min-height:56px;}
+  #preview .big{font-size:17px;font-weight:800;}
+  #preview .ok{color:var(--green);font-weight:700;}
+  #preview .warn{color:var(--red);font-weight:700;}
+  #preview .dim{color:var(--dim);font-size:13px;}
+  #candRow{display:flex;flex-direction:column;gap:6px;margin:6px 0;}
+  .cand{background:#241d33;border:1px solid #554a7a;color:#ddd6ff;border-radius:10px;padding:8px 12px;font-size:13.5px;cursor:pointer;text-align:left;width:100%;}
+  .cand b{color:#b7a6ff;}
+  #handWrap{background:#0d0b09;border-top:1px solid var(--line);padding:10px 8px 14px;flex:none;}
+  #hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+  .card{width:62px;height:88px;background:var(--card);color:var(--cardink);border-radius:9px;border:2px solid #cfc4ab;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;
+    transition:transform .12s ease, border-color .12s;user-select:none;}
+  .card .rank{font-size:23px;font-weight:800;line-height:1;}
+  .card .suit{font-size:21px;line-height:1.15;}
+  .card.red{color:#c22f3d;}
+  .card.sel{transform:translateY(-13px);border-color:var(--amber);box-shadow:0 6px 14px rgba(255,181,69,.35);}
+  .card.sel::after{content:"✓";position:absolute;top:2px;right:5px;color:#b97a12;font-weight:900;font-size:14px;}
+  .card.used{outline:3px solid var(--green);outline-offset:-3px;}
+  .card.fly{animation:fly .45s ease-in forwards;}
+  @keyframes fly{to{transform:translateY(-120px) scale(1.15);opacity:0;}}
+  .battleBtns{display:flex;gap:8px;margin-top:10px;}
+  .battleBtns button{flex:1;border-radius:12px;padding:14px 8px;font-size:16px;font-weight:700;cursor:pointer;border:1px solid var(--line);min-height:54px;}
+  #attackBtn{background:linear-gradient(180deg,#a02c22,#7c1d15);color:#fff;border-color:#d05545;}
+  #attackBtn:disabled{opacity:.4;}
+  #exchangeBtn{background:var(--panel2);color:var(--ink);}
+  .mini{font-size:12.5px;color:var(--dim);}
+  .allyRow{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;}
+  .ally{background:#20301f;border:1px solid #3c5a36;color:#cfe8c8;border-radius:999px;padding:4px 11px;font-size:13px;}
+  .ally b{color:#8fd07e;}
+  .relicTag{background:#332619;border:1px solid #6b4d22;color:#ffd9a0;border-radius:999px;padding:4px 11px;font-size:13px;display:inline-block;}
+  .log{font-size:13px;color:var(--dim);line-height:1.7;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:10px;max-height:120px;overflow-y:auto;}
+  .center{text-align:center;}
+  .titleBig{font-size:34px;letter-spacing:.14em;color:var(--amber);text-align:center;margin:26px 0 4px;font-weight:800;text-shadow:0 0 22px rgba(255,160,60,.45);}
+  .titleSub{text-align:center;color:var(--dim);margin-bottom:18px;font-size:13.5px;letter-spacing:.2em;}
+  table.deck{width:100%;border-collapse:collapse;font-size:13px;}
+  table.deck td{border-bottom:1px solid var(--line);padding:5px 4px;color:var(--dim);}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="title">札灯の迷宮</span>
+    <span class="sp"></span>
+    <span class="chip">体力 <b id="hudHp">10</b><span class="hpbar"><i id="hudHpBar" style="width:100%"></i></span></span>
+    <span class="chip">硬貨 <b id="hudCoin">0</b></span>
+    <span class="chip" id="hudFloor">拠点</span>
+  </header>
+  <div id="scene"><div id="floatLayer"></div><div id="sceneLabel">拠点</div></div>
+  <div id="main"></div>
+  <div id="handWrap" class="hidden">
+    <div id="hand"></div>
+    <div class="battleBtns">
+      <button id="exchangeBtn">札を交換</button>
+      <button id="attackBtn">攻撃する</button>
+    </div>
+    <div class="mini center" id="battleInfo"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
+</script>
+
+<script>
+/*__LOGIC_START__*/
+"use strict";
+// ===== 純粋ロジック（役判定・ダメージ計算）: UIからもテストからも使う =====
+const SUITS = ["♠","♥","♦","♣"];
+const RANK_LABEL = {11:"J",12:"Q",13:"K",14:"A"};
+function rankLabel(r){ return RANK_LABEL[r] || String(r); }
+function cardLabel(c){ return rankLabel(c.rank) + c.suit; }
+
+const HANDS = [
+  {key:"five",    name:"ファイブカード",       add:46, mult:4.0},
+  {key:"sf",      name:"ストレートフラッシュ", add:36, mult:3.6},
+  {key:"four",    name:"フォーカード",         add:30, mult:3.2},
+  {key:"fh",      name:"フルハウス",           add:26, mult:2.8},
+  {key:"flush",   name:"フラッシュ",           add:20, mult:2.4},
+  {key:"straight",name:"ストレート",           add:18, mult:2.2},
+  {key:"three",   name:"スリーカード",         add:15, mult:2.0},
+  {key:"twopair", name:"ツーペア",             add:12, mult:1.8},
+  {key:"pair",    name:"ワンペア",             add:8,  mult:1.5},
+  {key:"high",    name:"ハイカード",           add:0,  mult:1.0},
+];
+const HAND_RANK = {}; HANDS.forEach((h,i)=>HAND_RANK[h.key]=i); // 小さいほど強い
+
+const ALLIES = {
+  twins:   {name:"双子灯",   desc:"同じ数字2枚を含む攻撃に +10",        kind:"pair"},
+  lowforge:{name:"低札鍛冶", desc:"数字2〜4のペアを含む攻撃は 最終×1.6", kind:"pair"},
+  ash:     {name:"灰拾い",   desc:"交換1枚につき次の攻撃に +5（最大+15）", kind:"exchange"},
+  firekeeper:{name:"火守り", desc:"灰拾いの加算が+15なら その攻撃は最終×1.5", kind:"exchange"},
+  monori:  {name:"紋織り",   desc:"同じマーク5枚の攻撃は 倍率+0.8",      kind:"suit"},
+  montou:  {name:"紋灯",     desc:"同じマーク5枚の攻撃は +20",          kind:"suit"},
+};
+const RELICS = {
+  firebox:{name:"予備火口", desc:"戦闘ごとの札の交換が +1回"},
+  tabi:   {name:"旅灯",     desc:"休憩時の回復が +2 追加"},
+  iwada:  {name:"石肌",     desc:"各戦闘で最初の被ダメージを 1 減らす"},
+};
+const ENEMIES = {
+  ishikumo:{name:"石虫", hp:32, strong:false, kind:"bug",
+    intents:[{dmg:1, stop:null}]},
+  haiu:{name:"灰羽", hp:75, strong:false, kind:"feather",
+    intents:[{dmg:1, stop:null},{dmg:2, stop:{type:"minCards", n:3, label:"3枚以上で作る役"}}]},
+  morie:{name:"石の守衛", hp:140, strong:true, kind:"guardian",
+    intents:[{dmg:3, stop:{type:"pair", label:"同じ数字2枚を含む役"}},{dmg:1, stop:null}]},
+  tetsuu:{name:"鉄羽", hp:110, strong:false, kind:"feather",
+    intents:[{dmg:2, stop:null},{dmg:3, stop:{type:"minCards", n:4, label:"4枚以上で作る役"}}]},
+  bannin:{name:"炉の番人", hp:220, strong:true, kind:"boss",
+    intents:[{dmg:2, stop:null},{dmg:3, stop:{type:"pair", label:"同じ数字2枚を含む役"}},{dmg:4, stop:{type:"minCards", n:4, label:"4枚以上で作る役"}}]},
+  kunren:{name:"訓練石虫", hp:55, strong:false, kind:"bug",
+    intents:[{dmg:2, stop:{type:"pair", label:"同じ数字2枚を含む役"}}]},
+};
+
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffle(arr, rnd){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+let cardSeq = 1;
+function makeCard(rank, suit){ return {id:"c"+(cardSeq++), rank, suit}; }
+function standardDeck(){
+  const d = [];
+  for(const s of SUITS) for(let r=2;r<=14;r++) d.push(makeCard(r,s));
+  return d;
+}
+function cloneCardAsNew(c){ return {id:"c"+(cardSeq++), rank:c.rank, suit:c.suit}; }
+
+// 札の組（部分集合）がどの役か判定する。役でない場合は null。
+function classifyHand(cards){
+  const n = cards.length;
+  if(n===0) return null;
+  if(n===1) return HANDS.find(h=>h.key==="high");
+  const counts = {};
+  for(const c of cards) counts[c.rank]=(counts[c.rank]||0)+1;
+  const groups = Object.values(counts).sort((a,b)=>b-a);
+  const ranks = cards.map(c=>c.rank);
+  const isFlush = n===5 && cards.every(c=>c.suit===cards[0].suit);
+  let isStraight = false;
+  if(n===5){
+    const uniq = [...new Set(ranks)].sort((a,b)=>a-b);
+    if(uniq.length===5){
+      if(uniq[4]-uniq[0]===4) isStraight = true;
+      if(uniq.join(",")==="2,3,4,5,14") isStraight = true; // A-2-3-4-5
+    }
+  }
+  if(n===5 && groups[0]===5) return HANDS.find(h=>h.key==="five");
+  if(isFlush && isStraight) return HANDS.find(h=>h.key==="sf");
+  if(groups[0]===4) return HANDS.find(h=>h.key==="four");
+  if(n===5 && groups[0]===3 && groups[1]===2) return HANDS.find(h=>h.key==="fh");
+  if(isFlush) return HANDS.find(h=>h.key==="flush");
+  if(isStraight) return HANDS.find(h=>h.key==="straight");
+  if(groups[0]===3) return HANDS.find(h=>h.key==="three");
+  if(groups[0]===2 && groups[1]===2) return HANDS.find(h=>h.key==="twopair");
+  if(groups[0]===2) return HANDS.find(h=>h.key==="pair");
+  return null;
+}
+function subsetProps(cards){
+  const counts = {};
+  for(const c of cards) counts[c.rank]=(counts[c.rank]||0)+1;
+  const pairs = Object.entries(counts).filter(([,v])=>v>=2);
+  return {
+    containsPair: pairs.length>0,
+    lowPair: pairs.some(([r])=>{ const v=Number(r); return v>=2 && v<=4; }),
+    fiveSameSuit: cards.length===5 && cards.every(c=>c.suit===cards[0].suit),
+    count: cards.length,
+    sum: cards.reduce((s,c)=>s+c.rank,0),
+  };
+}
+// 1つの部分集合について、仲間効果込みのダメージを計算する
+function evalSubset(cards, hand, allies, exchangeBonus){
+  const p = subsetProps(cards);
+  let add = 0, multAdd = 0, product = 1;
+  const notes = [];
+  if(allies.includes("twins") && p.containsPair){ add += 10; notes.push("双子灯+10"); }
+  if(allies.includes("montou") && p.fiveSameSuit){ add += 20; notes.push("紋灯+20"); }
+  if(allies.includes("ash") && exchangeBonus>0){ add += exchangeBonus; notes.push("灰拾い+"+exchangeBonus); }
+  if(allies.includes("monori") && p.fiveSameSuit){ multAdd += 0.8; notes.push("紋織り 倍率+0.8"); }
+  if(allies.includes("lowforge") && p.lowPair){ product *= 1.6; notes.push("低札鍛冶 ×1.6"); }
+  if(allies.includes("firekeeper") && allies.includes("ash") && exchangeBonus>=15){ product *= 1.5; notes.push("火守り ×1.5"); }
+  const raw = (p.sum + hand.add + add) * (hand.mult + multAdd) * product;
+  return { hand, cards, damage: Math.floor(raw), props:p, notes };
+}
+function subsetsOf(arr){
+  const out = [];
+  const n = arr.length;
+  for(let mask=1; mask<(1<<n); mask++){
+    const s = [];
+    for(let i=0;i<n;i++) if(mask & (1<<i)) s.push(arr[i]);
+    if(s.length<=5) out.push(s);
+  }
+  return out;
+}
+function compareEval(a, b){
+  const ra = HAND_RANK[a.hand.key], rb = HAND_RANK[b.hand.key];
+  if(ra!==rb) return ra-rb;                    // 役表で上にある役を優先
+  if(a.damage!==b.damage) return b.damage-a.damage; // 同じ役なら最終ダメージ最大
+  const ia = a.cards.map(c=>c.id).sort().join(","), ib = b.cards.map(c=>c.id).sort().join(",");
+  return ia < ib ? -1 : ia > ib ? 1 : 0;        // 同点ならカードID順
+}
+const HAND_SIZE = {five:5, sf:5, four:4, fh:5, flush:5, straight:5, three:3, twopair:4, pair:2, high:1};
+// 選択した札（1〜5枚）から最良の役（部分集合）を返す
+function evaluateSelection(selected, allies, exchangeBonus){
+  if(!selected || selected.length===0) return null;
+  let best = null;
+  for(const sub of subsetsOf(selected)){
+    const hand = classifyHand(sub);
+    if(!hand || HAND_SIZE[hand.key]!==sub.length) continue; // 役を構成する札ちょうどを使う（余り札は消費しない）
+    const ev = evalSubset(sub, hand, allies||[], exchangeBonus||0);
+    if(!best || compareEval(ev, best) < 0) best = ev;
+  }
+  return best;
+}
+// 手札全体から「作れる役」候補（倒せる／止める／最も削る）
+function findCandidates(handCards, allies, exchangeBonus, enemyHp, intent){
+  const all = [];
+  for(const sub of subsetsOf(handCards)){
+    const hand = classifyHand(sub);
+    if(!hand || HAND_SIZE[hand.key]!==sub.length) continue;
+    all.push(evalSubset(sub, hand, allies||[], exchangeBonus||0));
+  }
+  if(!all.length) return [];
+  const out = [];
+  const lethal = all.filter(e=>e.damage>=enemyHp).sort(compareEval)[0];
+  if(lethal) out.push({tag:"倒せる", ev:lethal});
+  if(intent && intent.stop){
+    const stoppers = all.filter(e=>stopSatisfied(e, intent.stop)).sort(compareEval);
+    if(stoppers.length && (!lethal || stoppers[0]!==lethal)) out.push({tag:"攻撃を止める", ev:stoppers[0]});
+  }
+  const maxD = all.slice().sort((a,b)=> (b.damage-a.damage) || compareEval(a,b))[0];
+  if(maxD && !out.some(o=>o.ev===maxD)) out.push({tag:"最も削る", ev:maxD});
+  return out.slice(0,3);
+}
+function stopSatisfied(ev, stop){
+  if(!stop) return false;
+  if(stop.type==="pair") return ev.props.containsPair;
+  if(stop.type==="minCards") return ev.props.count >= stop.n;
+  return false;
+}
+if(typeof window!=="undefined"){
+  window.__FUDABI_TEST__ = { classifyHand, evaluateSelection, evalSubset, subsetProps,
+    stopSatisfied, findCandidates, standardDeck, makeCard, HANDS, ENEMIES, ALLIES, RELICS };
+}
+/*__LOGIC_END__*/
+</script>
+
+<script>
+"use strict";
+// ===== ゲーム状態と画面遷移 =====
+const $ = id => document.getElementById(id);
+const main = $("main"), handWrap = $("handWrap"), handEl = $("hand");
+const LS_META = "fudabi_meta_v1", LS_RUN = "fudabi_run_v1";
+let meta = JSON.parse(localStorage.getItem(LS_META) || '{"introDone":false,"codex":{"enemies":[],"allies":[],"relics":[]},"clears":0}');
+let run = null;   // 探索中の状態
+let B = null;     // 戦闘中の状態
+let intro = null; // 導入探索の状態
+
+function saveMeta(){ localStorage.setItem(LS_META, JSON.stringify(meta)); }
+function saveRun(){ if(run) localStorage.setItem(LS_RUN, JSON.stringify(run)); }
+function loadRun(){ try{ return JSON.parse(localStorage.getItem(LS_RUN)); }catch(e){ return null; } }
+function clearRunSave(){ localStorage.removeItem(LS_RUN); }
+function noteCodex(kind, key){
+  if(!meta.codex[kind].includes(key)){ meta.codex[kind].push(key); saveMeta(); }
+}
+function hud(){
+  $("hudHp").textContent = run ? run.hp : (B&&B.playerHp!=null ? B.playerHp : 10);
+  const hp = run ? run.hp : 10;
+  $("hudHpBar").style.width = Math.max(0, hp*10) + "%";
+  $("hudCoin").textContent = run ? run.coins : 0;
+  $("hudFloor").textContent = run ? run.floorLabel : "拠点";
+}
+function setScene(label, enemyKind){
+  $("sceneLabel").textContent = label;
+  if(window.Scene3D) Scene3D.setRoom(enemyKind || null);
+}
+function floatNum(text, cls, xPct){
+  const el = document.createElement("div");
+  el.className = "floatNum " + (cls||"");
+  el.textContent = text;
+  el.style.left = (xPct||50) + "%"; el.style.top = "34%";
+  $("floatLayer").appendChild(el);
+  setTimeout(()=>el.remove(), 1150);
+}
+function alliesRow(){
+  if(!run || !run.allies.length) return "";
+  return '<div class="allyRow">' + run.allies.map(a =>
+    `<span class="ally"><b>${ALLIES[a].name}</b> ${ALLIES[a].desc}</span>`).join("") + "</div>";
+}
+function relicTag(){
+  if(!run || !run.relic) return "";
+  const r = RELICS[run.relic];
+  return `<div><span class="relicTag">遺物: ${r.name}（${r.desc}）</span></div>`;
+}
+
+// ---------- タイトル ----------
+function showTitle(){
+  B = null; intro = null;
+  handWrap.classList.add("hidden");
+  const saved = loadRun();
+  if(saved && saved.active) run = saved; else if(!run || !run.active) run = null;
+  hud();
+  setScene("拠点 ─ ランタンの工房", null);
+  let html = `<div class="titleBig">札灯の迷宮</div><div class="titleSub">ふだびのめいきゅう</div>`;
+  html += `<p class="story">古い地下工房を、ランタンを片手に進む。通路の向こうに敵が見えたら、進む道を選ぶ。接敵したら、手札の数字やマークをそろえ、作った役で敵の攻撃を止めたり、一気に倒したりする。</p>`;
+  if(run && run.active) html += `<button class="btn primary" onclick="resumeRun()">つづきから（${run.floorLabel}・体力${run.hp}）</button>`;
+  html += `<button class="btn primary" onclick="startRun()">通常探索へ</button>`;
+  html += `<button class="btn" onclick="startIntro()">導入探索（初回コース）<span class="sub">移動と札選びから始める、3〜5分の固定コース${meta.introDone ? "（クリア済み）" : ""}</span></button>`;
+  html += `<button class="btn" onclick="showCodex()">図鑑<span class="sub">出会った敵・仲間・遺物</span></button>`;
+  html += `<p class="mini center">1周 12〜18分目標 ／ 時間制限なし ／ 進行は自動で保存されます</p>`;
+  main.innerHTML = html;
+}
+function showCodex(){
+  const e = meta.codex.enemies.map(k=>ENEMIES[k].name).join("、") || "（まだなし）";
+  const a = meta.codex.allies.map(k=>ALLIES[k].name).join("、") || "（まだなし）";
+  const r = meta.codex.relics.map(k=>RELICS[k].name).join("、") || "（まだなし）";
+  main.innerHTML = `<h2 class="floor">図鑑</h2>
+    <p class="story">敵: ${e}</p><p class="story">仲間: ${a}</p><p class="story">遺物: ${r}</p>
+    <p class="story">クリア回数: ${meta.clears}</p>
+    <button class="btn center" onclick="showTitle()">戻る</button>`;
+}
+
+// ---------- 通常探索 ----------
+function newRunState(seed){
+  return { active:true, seed, rndState:seed, hp:10, coins:0,
+    deck: standardDeck(), allies:[], relic:null,
+    pos:"f1_battle", branch:null, floorLabel:"地下1階",
+    modsUsed:{}, rested:{}, battlesWon:0, firstRewardDone:false };
+}
+function nextRnd(){
+  run.rndState = (run.rndState * 1103515245 + 12345) % 2147483648;
+  return run.rndState / 2147483648;
+}
+function startRun(){
+  const seed = (Date.now() % 2147483647) + 1;
+  run = newRunState(seed);
+  const rnd = mulberry32(seed);
+  run.deck = shuffle(run.deck, rnd);
+  saveRun(); hud(); renderExplore();
+}
+function resumeRun(){ run = loadRun(); hud(); renderExplore(); }
+
+function destButtons(){
+  // 現在位置から行ける先を返す [{label, sub, action}]
+  const d = [];
+  const P = run.pos;
+  if(P==="f1_battle"){
+    d.push({label:"前へ進む ─ 石虫", sub:"通常敵 ／ 倒すと硬貨4 ／ その先に休憩所", act:"gotoBattle('ishikumo','f1_rest')"});
+  } else if(P==="f1_rest"){
+    d.push({label:"休憩所で休む", sub:"体力 +3（最大10）" + (run.relic==="tabi" ? " ／ 旅灯でさらに +2" : ""), act:"doRest('f2_branch','地下2階')"});
+  } else if(P==="f2_branch"){
+    d.push({label:"左の扉 ─ 灰羽", sub:"通常敵 ／ 戦闘後に工房へ", act:"gotoBattle('haiu','f2_workshop')"});
+    d.push({label:"右の扉 ─ 石の守衛（強敵）", sub:"強敵 ／ 倒すと硬貨6と宝箱（遺物）", act:"gotoBattle('morie','f2_chest')"});
+  } else if(P==="f2_workshop"){
+    d.push({label:"工房を使う", sub:"札の改造・仲間の加入（この工房では改造 最大2回まで）", act:"renderWorkshop('f2_workshop','f3_battle','地下3階',false)"});
+    d.push({label:"工房を出て 地下3階へ", sub:"次の敵: 鉄羽", act:"advanceTo('f3_battle','地下3階')"});
+  } else if(P==="f2_chest"){
+    d.push({label:"宝箱を開ける", sub:"遺物を1つ選ぶ（装備は1枠）", act:"renderChest()"});
+  } else if(P==="f3_battle"){
+    d.push({label:"前へ進む ─ 鉄羽", sub:"通常敵 ／ 倒すと硬貨4 ／ その先に工房", act:"gotoBattle('tetsuu','f3_workshop')"});
+  } else if(P==="f3_workshop"){
+    d.push({label:"最後の工房を使う", sub:"札の改造・仲間の加入／任意休憩（硬貨3で体力+3、1回）", act:"renderWorkshop('f3_workshop','boss','地下3階 最深部',true)"});
+    d.push({label:"工房を出て ボスへ", sub:"炉の番人 ／ 体力220", act:"advanceTo('boss','地下3階 最深部')"});
+  } else if(P==="boss"){
+    d.push({label:"炉の番人に挑む", sub:"ボス ／ 体力220 ／ 行動は 2→3→4 の周期", act:"gotoBattle('bannin','clear')"});
+  }
+  return d;
+}
+function advanceTo(pos, floorLabel){
+  run.pos = pos; run.floorLabel = floorLabel; saveRun(); hud(); renderExplore();
+}
+function renderExplore(){
+  B = null; handWrap.classList.add("hidden"); hud();
+  const enemyAt = {f1_battle:"ishikumo", f3_battle:"tetsuu", boss:"bannin"}[run.pos];
+  const branchEnemy = run.pos==="f2_branch" ? "haiu" : null;
+  setScene(run.floorLabel + " ─ " + sceneName(run.pos), enemyAt || branchEnemy);
+  let html = `<h2 class="floor">${run.floorLabel}</h2>`;
+  html += `<p class="story">${posStory(run.pos)}</p>`;
+  html += alliesRow() + relicTag();
+  for(const d of destButtons())
+    html += `<button class="btn" onclick="${d.act}">${d.label}<span class="sub">${d.sub}</span></button>`;
+  html += `<button class="btn center" onclick="toggleDeck(this)">デッキを見る（${run.deck.length}枚）</button><div id="deckView"></div>`;
+  html += `<button class="btn center" onclick="showTitle()">中断して拠点へ（進行は保存されます）</button>`;
+  main.innerHTML = html;
+}
+function sceneName(pos){
+  return {f1_battle:"入口の間", f1_rest:"休憩所", f2_branch:"分岐の広間", f2_workshop:"工房",
+    f2_chest:"宝箱の間", f3_battle:"深部の通路", f3_workshop:"最後の工房", boss:"炉の間"}[pos] || "";
+}
+function posStory(pos){
+  return {
+    f1_battle:"通路の向こうに、石の虫がうずくまっている。手札の役で倒す、ポーカー戦闘の入口。",
+    f1_rest:"小さな休憩所。ランタンの火が落ち着いている。",
+    f2_branch:"分岐の広間。左の扉は暖色の灯り、右の扉は石の亀裂から琥珀色の光が漏れている。",
+    f2_workshop:"工房。硬貨で札を改造したり、仲間を迎えたりできる。",
+    f2_chest:"強敵の守っていた宝箱が、静かに開くのを待っている。",
+    f3_battle:"空気が熱を帯びてきた。鉄の羽音が近い。",
+    f3_workshop:"炉に近い最後の工房。ボス戦の前の補強はここが最後。",
+    boss:"最深部の炉。番人がこちらを向いて立っている。",
+  }[pos] || "";
+}
+function toggleDeck(btn){
+  const v = $("deckView");
+  if(v.innerHTML){ v.innerHTML=""; return; }
+  const counts = {};
+  for(const c of run.deck){ const k = cardLabel(c); counts[k]=(counts[k]||0)+1; }
+  const rows = Object.entries(counts).sort().map(([k,n])=>`<tr><td>${k}</td><td>× ${n}</td></tr>`).join("");
+  v.innerHTML = `<table class="deck">${rows}</table>`;
+}
+function doRest(nextPos, floorLabel){
+  let heal = 3 + (run.relic==="tabi" ? 2 : 0);
+  run.hp = Math.min(10, run.hp + heal);
+  floatNum("+"+heal+" 回復", "stop", 30);
+  advanceTo(nextPos, floorLabel);
+}
+function gotoBattle(enemyKey, nextPos){
+  startBattle(enemyKey, { onWin:()=>{ afterWin(enemyKey, nextPos); } });
+}
+function afterWin(enemyKey, nextPos){
+  const e = ENEMIES[enemyKey];
+  run.coins += e.strong ? 6 : 4;
+  run.battlesWon++;
+  noteCodex("enemies", enemyKey);
+  if(nextPos==="clear"){ runClear(); return; }
+  if(!run.firstRewardDone && !intro){
+    run.firstRewardDone = true;
+    run.pos = nextPos; saveRun();
+    renderAllyChoice(()=>{ saveRun(); renderExplore(); });
+    return;
+  }
+  run.pos = nextPos; saveRun(); renderExplore();
+}
+function renderAllyChoice(done){
+  const choices = ["twins","monori","ash"];
+  let html = `<h2 class="floor">仲間が加わる</h2><p class="story">戦闘のあと、灯りに惹かれて仲間が寄ってきた。狙う役が変わる3人から、1人を選ぶ（無料）。</p>`;
+  for(const a of choices)
+    html += `<button class="btn" onclick="pickAlly('${a}')"><b>${ALLIES[a].name}</b><span class="sub">${ALLIES[a].desc}</span></button>`;
+  main.innerHTML = html;
+  window._allyDone = done;
+}
+function pickAlly(a){
+  if(run.allies.length>=3){ alert("仲間は3人までです"); return; }
+  run.allies.push(a); noteCodex("allies", a); saveRun();
+  if(window._allyDone) window._allyDone();
+}
+function renderChest(){
+  const pool = Object.keys(RELICS).filter(r=>r!==run.relic);
+  const rnd = mulberry32(run.seed + run.battlesWon*77);
+  const picks = shuffle(pool, rnd).slice(0,2);
+  let html = `<h2 class="floor">宝箱 ─ 遺物</h2><p class="story">遺物を1つ選んで装備する（装備は1枠。今の遺物と入れ替わる）。</p>`;
+  for(const r of picks)
+    html += `<button class="btn" onclick="pickRelic('${r}')"><b>${RELICS[r].name}</b><span class="sub">${RELICS[r].desc}</span></button>`;
+  main.innerHTML = html;
+}
+function pickRelic(r){
+  run.relic = r; noteCodex("relics", r);
+  advanceTo("f3_battle", "地下3階");
+}
+function runClear(){
+  run.active = false; clearRunSave();
+  meta.clears++; if(!meta.introDone) meta.introDone = meta.introDone; saveMeta();
+  handWrap.classList.add("hidden");
+  setScene("出口の光", null);
+  main.innerHTML = `<h2 class="floor">探索クリア</h2>
+    <p class="story">炉の番人を倒し、出口の灯りが点いた。おつかれさま。</p>
+    <p class="story">戦闘 ${run.battlesWon} 回 ／ 残り体力 ${run.hp} ／ 仲間 ${run.allies.map(a=>ALLIES[a].name).join("、")||"なし"}</p>
+    <button class="btn primary" onclick="showTitle()">拠点へ戻る</button>`;
+  run = null; hud();
+}
+function runDefeat(reason){
+  const floor = run ? run.floorLabel : "";
+  run.active = false; clearRunSave();
+  handWrap.classList.add("hidden");
+  main.innerHTML = `<h2 class="floor">敗北</h2>
+    <p class="story">到達: ${floor} ／ 主な敗因: ${reason}</p>
+    <button class="btn primary" onclick="showTitle()">拠点へ戻る</button>
+    <button class="btn" onclick="startRun()">もう一度（新しい探索）</button>`;
+  run = null; hud();
+}
+
+// ---------- 工房 ----------
+function renderWorkshop(posKey, nextPos, floorLabel, hasRest){
+  const used = run.modsUsed[posKey] || 0;
+  let html = `<h2 class="floor">工房</h2>
+    <p class="story">所持金: 硬貨 ${run.coins} ／ この工房での改造は残り ${Math.max(0, 2-used)} 回（最大2回）</p>`;
+  html += alliesRow();
+  // 仲間加入
+  const cand = Object.keys(ALLIES).filter(a=>!run.allies.includes(a));
+  if(cand.length && run.allies.length<3){
+    const c = cand[Math.floor(nextRnd()*cand.length)];
+    html += `<button class="btn" ${run.coins<6?"disabled":""} onclick="workshopAlly('${posKey}','${nextPos}','${floorLabel}',${hasRest},'${c}')">仲間を迎える: <b>${ALLIES[c].name}</b>（硬貨6）<span class="sub">${ALLIES[c].desc}</span></button>`;
+  }
+  if(used<2){
+    html += `<div class="mini" style="margin:8px 0 2px">札の改造（対象は候補3枚から選ぶ）</div>`;
+    html += `<button class="btn" ${run.coins<3?"disabled":""} onclick="workshopMod('${posKey}','${nextPos}','${floorLabel}',${hasRest},'suit')">マーク変更（硬貨3）<span class="sub">選んだ札のマークを変える。フラッシュやストレートフラッシュの狙い目に</span></button>`;
+    html += `<button class="btn" ${run.coins<3?"disabled":""} onclick="workshopMod('${posKey}','${nextPos}','${floorLabel}',${hasRest},'remove')">除去（硬貨3）<span class="sub">選んだ札をデッキから外す（下限40枚）</span></button>`;
+    html += `<button class="btn" ${run.coins<5?"disabled":""} onclick="workshopMod('${posKey}','${nextPos}','${floorLabel}',${hasRest},'dup')">複製（硬貨5）<span class="sub">選んだ札のコピーをデッキに加える（上限60枚）。ファイブカードも狙える</span></button>`;
+  } else {
+    html += `<p class="story">この工房での改造は上限に達した。</p>`;
+  }
+  if(hasRest && !run.rested[posKey])
+    html += `<button class="btn" ${run.coins<3?"disabled":""} onclick="workshopRest('${posKey}','${nextPos}','${floorLabel}')">任意休憩（硬貨3で 体力+3、1回）</button>`;
+  html += `<button class="btn primary" onclick="advanceTo('${nextPos}','${floorLabel}')">工房を出る</button>`;
+  main.innerHTML = html;
+}
+function workshopAlly(posKey, nextPos, floorLabel, hasRest, ally){
+  run.coins -= 6; run.allies.push(ally); noteCodex("allies", ally); saveRun(); hud();
+  renderWorkshop(posKey, nextPos, floorLabel, hasRest);
+}
+function workshopRest(posKey, nextPos, floorLabel){
+  run.coins -= 3; run.hp = Math.min(10, run.hp+3); run.rested[posKey]=true; saveRun(); hud();
+  renderWorkshop(posKey, nextPos, floorLabel, true);
+}
+function workshopMod(posKey, nextPos, floorLabel, hasRest, mod){
+  const picks = shuffle(run.deck, Math.random).slice(0,3);
+  let html = `<h2 class="floor">工房 ─ 対象の札を選ぶ</h2>`;
+  for(const c of picks)
+    html += `<button class="btn center" onclick="applyMod('${posKey}','${nextPos}','${floorLabel}',${hasRest},'${mod}','${c.id}')">${cardLabel(c)}</button>`;
+  html += `<button class="btn center" onclick="renderWorkshop('${posKey}','${nextPos}','${floorLabel}',${hasRest})">やめる</button>`;
+  main.innerHTML = html;
+}
+function applyMod(posKey, nextPos, floorLabel, hasRest, mod, cardId){
+  const idx = run.deck.findIndex(c=>c.id===cardId);
+  if(idx<0){ renderWorkshop(posKey, nextPos, floorLabel, hasRest); return; }
+  if(mod==="remove"){
+    if(run.deck.length<=40){ alert("デッキは40枚が下限です"); return; }
+    run.deck.splice(idx,1); run.coins -= 3;
+  } else if(mod==="dup"){
+    if(run.deck.length>=60){ alert("デッキは60枚が上限です"); return; }
+    run.deck.push(cloneCardAsNew(run.deck[idx])); run.coins -= 5;
+  } else if(mod==="suit"){
+    const c = run.deck[idx];
+    const others = SUITS.filter(s=>s!==c.suit);
+    let html = `<h2 class="floor">工房 ─ マークを選ぶ</h2><p class="story">${cardLabel(c)} のマークを変える。</p>`;
+    for(const s of others)
+      html += `<button class="btn center" onclick="applySuit('${posKey}','${nextPos}','${floorLabel}',${hasRest},'${cardId}','${s}')">${rankLabel(c.rank)}${s}</button>`;
+    html += `<button class="btn center" onclick="renderWorkshop('${posKey}','${nextPos}','${floorLabel}',${hasRest})">やめる</button>`;
+    main.innerHTML = html; return;
+  }
+  run.modsUsed[posKey] = (run.modsUsed[posKey]||0)+1;
+  saveRun(); hud(); renderWorkshop(posKey, nextPos, floorLabel, hasRest);
+}
+function applySuit(posKey, nextPos, floorLabel, hasRest, cardId, suit){
+  const c = run.deck.find(x=>x.id===cardId); if(!c) return;
+  c.suit = suit; run.coins -= 3;
+  run.modsUsed[posKey] = (run.modsUsed[posKey]||0)+1;
+  saveRun(); renderWorkshop(posKey, nextPos, floorLabel, hasRest);
+}
+</script>
+
+<script>
+"use strict";
+// ===== 戦闘 =====
+function startBattle(enemyKey, opts){
+  opts = opts || {};
+  const e = ENEMIES[enemyKey];
+  noteCodex("enemies", enemyKey);
+  const deck = opts.riggedDeck ? opts.riggedDeck.slice()
+    : shuffle(run.deck, Math.random);
+  B = {
+    enemyKey, enemyHp: e.hp, intentIdx: 0,
+    deck, hand: [], discard: [], reshuffled: false,
+    exchangesLeft: 2 + ((opts.relic || (run && run.relic)) === "firebox" ? 1 : 0),
+    exchangeBonus: 0, firstHitTaken: false,
+    selected: [], mode: "attack", prevSelected: null, animating: false,
+    allies: opts.allies || (run ? run.allies.slice() : []),
+    relic: opts.relic !== undefined ? opts.relic : (run ? run.relic : null),
+    playerHp: opts.playerHp != null ? opts.playerHp : (run ? run.hp : 10),
+    onWin: opts.onWin, onLose: opts.onLose, hint: opts.hint || "",
+  };
+  drawTo(7);
+  handWrap.classList.remove("hidden");
+  setScene((run ? run.floorLabel : "導入探索") + " ─ 戦闘", e.kind);
+  renderBattle();
+}
+function curIntent(){ return ENEMIES[B.enemyKey].intents[B.intentIdx % ENEMIES[B.enemyKey].intents.length]; }
+function drawCards(n){
+  const out = [];
+  while(out.length < n){
+    if(B.deck.length===0){
+      if(!B.reshuffled && B.discard.length){
+        B.deck = shuffle(B.discard, Math.random); B.discard = []; B.reshuffled = true;
+      } else break;
+    }
+    out.push(B.deck.pop());
+  }
+  return out;
+}
+function drawTo(n){ while(B.hand.length < n){ const d = drawCards(1); if(!d.length) break; B.hand.push(d[0]); } }
+function selectedCards(){ return B.hand.filter(c=>B.selected.includes(c.id)); }
+
+function renderBattle(){
+  const e = ENEMIES[B.enemyKey];
+  const intent = curIntent();
+  let html = `<div class="enemyCard">
+    <div class="ename">${e.name}${e.strong ? "（強敵）" : ""}</div>
+    <div class="ehp">敵の体力 ${Math.max(0,B.enemyHp)} / ${e.hp}</div>
+    <div class="intent ${intent.stop ? "stopable" : ""}">次の攻撃 <b>${intent.dmg}ダメージ</b>${intent.stop ? ` ／ <b>${intent.stop.label}</b> で止める` : ""}</div>
+  </div>`;
+  if(B.hint) html += `<p class="story">${B.hint}</p>`;
+  html += alliesRowForBattle();
+  html += `<div id="preview"></div><div id="candRow"></div>`;
+  html += `<div class="log" id="battleLog">${(B.log||[]).join("<br>")}</div>`;
+  main.innerHTML = html;
+  renderHand(); updatePreview();
+}
+function alliesRowForBattle(){
+  if(!B.allies.length) return "";
+  return '<div class="allyRow">' + B.allies.map(a =>
+    `<span class="ally"><b>${ALLIES[a].name}</b> ${ALLIES[a].desc}</span>`).join("") + "</div>";
+}
+function blog(msg){
+  B.log = B.log || []; B.log.unshift(msg); if(B.log.length>6) B.log.pop();
+  const el = $("battleLog"); if(el) el.innerHTML = B.log.join("<br>");
+}
+function renderHand(usedIds){
+  handEl.innerHTML = "";
+  for(const c of B.hand){
+    const div = document.createElement("div");
+    div.className = "card" + ((c.suit==="♥"||c.suit==="♦") ? " red" : "")
+      + (B.selected.includes(c.id) ? " sel" : "")
+      + (usedIds && usedIds.includes(c.id) ? " used" : "");
+    div.innerHTML = `<div class="rank">${rankLabel(c.rank)}</div><div class="suit">${c.suit}</div>`;
+    div.onclick = ()=>toggleCard(c.id);
+    handEl.appendChild(div);
+  }
+  $("battleInfo").textContent =
+    `山札 ${B.deck.length} ／ 捨て札 ${B.discard.length} ／ 交換 残り${B.exchangesLeft}回` +
+    (B.exchangeBonus>0 ? ` ／ 灰拾いの加算 +${B.exchangeBonus}` : "") +
+    ` ／ 体力 ${B.playerHp}`;
+  $("exchangeBtn").textContent = B.mode==="exchange" ? "交換をやめる" : "札を交換";
+  $("exchangeBtn").disabled = B.animating || (B.mode==="attack" && B.exchangesLeft<=0);
+  $("exchangeBtn").onclick = toggleExchangeMode;
+  $("attackBtn").onclick = B.mode==="exchange" ? confirmExchange : doAttack;
+}
+function toggleCard(id){
+  if(!B || B.animating) return;
+  const i = B.selected.indexOf(id);
+  if(i>=0) B.selected.splice(i,1);
+  else {
+    const max = B.mode==="exchange" ? 3 : 5;
+    if(B.selected.length>=max) return;
+    B.selected.push(id);
+  }
+  updatePreview();
+}
+function currentEval(){
+  if(B.mode!=="attack" || !B.selected.length) return null;
+  return evaluateSelection(selectedCards(), B.allies, B.exchangeBonus);
+}
+function incomingFor(ev){
+  const intent = curIntent();
+  if(!ev) return intent.dmg;
+  if(ev.damage >= B.enemyHp) return 0;
+  if(intent.stop && stopSatisfied(ev, intent.stop)) return 0;
+  let d = intent.dmg;
+  if(B.relic==="iwada" && !B.firstHitTaken) d = Math.max(0, d-1);
+  return d;
+}
+function updatePreview(){
+  const pv = $("preview"); if(!pv) return;
+  const intent = curIntent();
+  if(B.mode==="exchange"){
+    pv.innerHTML = `<span class="big">札の交換</span>　交換する札を最大3枚まで選ぶ（選択中 ${B.selected.length}枚）。交換では敵の行動は進まない。`;
+    $("attackBtn").textContent = `交換を確定（${B.selected.length}枚）`;
+    $("attackBtn").disabled = B.animating || B.selected.length===0;
+    renderHand(); return;
+  }
+  const ev = currentEval();
+  if(!ev){
+    pv.innerHTML = `<span class="dim">札を1〜5枚選ぶ。選んだ時点で、作れる役と結果がここに出る。</span>`;
+    $("attackBtn").textContent = "攻撃する";
+    $("attackBtn").disabled = true;
+    renderHand(); renderCandidates(); return;
+  }
+  const inc = incomingFor(ev);
+  const stopped = intent.stop && stopSatisfied(ev, intent.stop) && ev.damage < B.enemyHp;
+  let html = `<span class="big">${ev.hand.name}</span>　敵の体力 ${B.enemyHp} → ${Math.max(0, B.enemyHp-ev.damage)}`;
+  html += `<br><span class="big">${ev.damage}ダメージ</span>`;
+  if(ev.notes.length) html += ` <span class="dim">（${ev.notes.join("、")}）</span>`;
+  if(ev.damage >= B.enemyHp) html += `<br><span class="ok">倒せる。反撃はない。</span>`;
+  else if(stopped) html += `<br><span class="ok">攻撃を止める。受けるダメージ 0。</span>`;
+  else html += `<br>受けるダメージ ${inc}`;
+  if(inc >= B.playerHp && ev.damage < B.enemyHp) html += `<br><span class="warn">この攻撃を選ぶと敗北する。</span>`;
+  const leftover = B.selected.filter(id=>!ev.cards.some(c=>c.id===id));
+  if(leftover.length) html += `<br><span class="dim">役に使わない札は手札に残る。</span>`;
+  pv.innerHTML = html;
+  $("attackBtn").textContent = `攻撃する（${ev.damage}）`;
+  $("attackBtn").disabled = B.animating;
+  renderHand(ev.cards.map(c=>c.id));
+  renderCandidates();
+}
+function renderCandidates(){
+  const row = $("candRow"); if(!row) return;
+  if(B.mode!=="attack"){ row.innerHTML=""; return; }
+  const cands = findCandidates(B.hand, B.allies, B.exchangeBonus, B.enemyHp, curIntent());
+  row.innerHTML = cands.map((c,i)=>
+    `<button class="cand" onclick="pickCandidate(${i})"><b>${c.tag}</b>: ${c.ev.hand.name} ${c.ev.damage}ダメージ（${c.ev.cards.map(cardLabel).join(" ")}）</button>`).join("");
+  window._cands = cands;
+}
+function pickCandidate(i){
+  const c = window._cands && window._cands[i]; if(!c) return;
+  B.selected = c.ev.cards.map(x=>x.id);
+  updatePreview();
+}
+function toggleExchangeMode(){
+  if(!B || B.animating) return;
+  if(B.mode==="attack"){
+    if(B.exchangesLeft<=0) return;
+    B.mode = "exchange"; B.prevSelected = B.selected.slice(); B.selected = [];
+  } else {
+    B.mode = "attack"; B.selected = B.prevSelected || []; B.prevSelected = null;
+  }
+  updatePreview();
+}
+function confirmExchange(){
+  if(!B || B.animating || !B.selected.length) return;
+  const n = B.selected.length;
+  const going = selectedCards();
+  B.hand = B.hand.filter(c=>!B.selected.includes(c.id));
+  B.discard.push(...going);
+  B.hand.push(...drawCards(n));
+  B.exchangesLeft--;
+  if(B.allies.includes("ash")) B.exchangeBonus = Math.min(15, B.exchangeBonus + 5*n);
+  blog(`札を${n}枚交換した。`);
+  B.mode = "attack"; B.selected = []; B.prevSelected = null;
+  renderBattle();
+}
+function doAttack(){
+  if(!B || B.animating) return;
+  const ev = currentEval(); if(!ev) return;
+  const inc = incomingFor(ev);
+  if(inc >= B.playerHp && ev.damage < B.enemyHp){
+    if(!confirm("この攻撃を選ぶと敗北します。それでも攻撃しますか？")) return;
+  }
+  B.animating = true;
+  const usedIds = ev.cards.map(c=>c.id);
+  // 演出: 使う札を飛ばす
+  [...handEl.children].forEach(el=>{});
+  renderHand(usedIds);
+  [...handEl.querySelectorAll(".card")].forEach((el,idx)=>{
+    if(usedIds.includes(B.hand[idx].id)) el.classList.add("fly");
+  });
+  floatNum(ev.damage + "", "", 50);
+  if(window.Scene3D) Scene3D.hit();
+  setTimeout(()=>{
+    B.enemyHp -= ev.damage;
+    blog(`${ev.hand.name}で ${ev.damage}ダメージ。`);
+    B.exchangeBonus = 0; // 灰拾いの加算は攻撃確定で消費
+    if(B.enemyHp<=0){
+      B.animating = false;
+      handWrap.classList.add("hidden");
+      if(run) { run.hp = B.playerHp; saveRun(); }
+      const cb = B.onWin; B = null; cb && cb();
+      return;
+    }
+    const intent = curIntent();
+    const stopped = intent.stop && stopSatisfied(ev, intent.stop);
+    if(stopped){
+      floatNum("攻撃を止めた", "stop", 50);
+      if(window.Scene3D) Scene3D.stopped();
+      blog("敵の攻撃を止めた。");
+    } else {
+      const d = incomingFor(ev);
+      if(d>0){
+        B.playerHp -= d; B.firstHitTaken = true;
+        floatNum("-" + d, "hurt", 30);
+        const sc = $("scene"); sc.classList.remove("shake"); void sc.offsetWidth; sc.classList.add("shake");
+        blog(`敵の攻撃で ${d}ダメージを受けた。`);
+        hudBattle();
+      } else blog("敵の攻撃は軽減された。");
+    }
+    if(B.playerHp<=0){
+      B.animating = false;
+      handWrap.classList.add("hidden");
+      const cb = B.onLose; const bb = B; B = null;
+      if(cb) cb("敵の攻撃で体力が尽きた");
+      else if(run) runDefeat("敵の攻撃で体力が尽きた");
+      return;
+    }
+    // 使用札を捨てて補充
+    B.hand = B.hand.filter(c=>!usedIds.includes(c.id));
+    B.discard.push(...ev.cards);
+    drawTo(7);
+    B.selected = [];
+    B.intentIdx++;
+    if(B.hand.length===0 && B.deck.length===0 && (B.reshuffled || B.discard.length===0)){
+      handWrap.classList.add("hidden");
+      const cb = B.onLose; B = null;
+      if(cb) cb("札が尽きた"); else if(run) runDefeat("札が尽きた");
+      return;
+    }
+    B.animating = false;
+    renderBattle();
+  }, 520);
+}
+function hudBattle(){ $("hudHp").textContent = B.playerHp; $("hudHpBar").style.width = Math.max(0,B.playerHp*10)+"%"; }
+
+// ===== 導入探索 =====
+function rigged(handCards, rest){
+  const pool = standardDeck().filter(c=>!handCards.some(h=>h.rank===c.rank && h.suit===c.suit) && !rest.some(h=>h.rank===c.rank && h.suit===c.suit));
+  const shuffled = shuffle(pool, Math.random);
+  // 山札は pop で引くので、並びは [底 ... 先頭] 。手札→補充順の逆で積む
+  const seq = [...handCards, ...rest];
+  return [...shuffled, ...seq.reverse()];
+}
+function startIntro(){
+  intro = { step: 0 };
+  run = null; hud();
+  setScene("導入探索", "bug");
+  main.innerHTML = `<h2 class="floor">導入探索</h2>
+    <p class="story">行き先を押す。札を押す。説明は、それを使う場面で一つずつ出す。</p>
+    <button class="btn primary" onclick="introBattle1()">入口から小型敵へ</button>
+    <button class="btn center" onclick="showTitle()">拠点へ戻る</button>`;
+}
+function introBattle1(){
+  const hand = [makeCard(2,"♥"),makeCard(3,"♠"),makeCard(4,"♣"),makeCard(6,"♦"),makeCard(7,"♥"),makeCard(7,"♦"),makeCard(9,"♠")];
+  startBattle("ishikumo", {
+    riggedDeck: rigged(hand, []), allies: [], relic: null, playerHp: 10,
+    hint: "最初の攻撃は「同じ数字を2枚」で通じる。7を2枚選んでみよう。",
+    onWin: introReward, onLose: ()=>{ intro=null; showTitle(); },
+  });
+}
+function introReward(){
+  intro.step = 1;
+  main.innerHTML = `<h2 class="floor">仲間「双子灯」が加わった</h2>
+    <p class="story">双子灯: 同じ数字が2枚あれば、攻撃力 +10。</p>
+    <p class="story">さっきの7のペアは （7＋7＋8）×1.5 ＝ 33 だった。双子灯がいると （7＋7＋8＋10）×1.5 ＝ <b>48</b> に変わる。低い札のペアも、仲間次第で武器になる。</p>
+    <button class="btn primary" onclick="introBattle2()">2戦目へ（交換と攻撃予告）</button>`;
+  noteCodex("allies","twins");
+}
+function introBattle2(){
+  const hand = [makeCard(2,"♥"),makeCard(3,"♠"),makeCard(4,"♣"),makeCard(6,"♦"),makeCard(7,"♥"),makeCard(8,"♦"),makeCard(9,"♠")];
+  const rest = [makeCard(7,"♦"), makeCard(13,"♣"), makeCard(9,"♣")];
+  startBattle("kunren", {
+    riggedDeck: rigged(hand, rest), allies: ["twins"], relic: null, playerHp: 10,
+    hint: "敵の次の攻撃は2ダメージ。「同じ数字2枚を含む役」で止められる。今の手札にはペアがない。9♠を1枚交換すると 7♦ が引ける。",
+    onWin: introFinale, onLose: ()=>{ intro=null; showTitle(); },
+  });
+}
+function introFinale(){
+  intro = null; meta.introDone = true; saveMeta();
+  main.innerHTML = `<h2 class="floor">導入探索 おわり</h2>
+    <p class="story">2戦目の先は、分岐と休憩所。通常探索では、ここから先は毎回異なる組み合わせになる。左は安全な道（工房）、右は強敵の宝箱。</p>
+    <p class="story">覚えたこと: 役で攻撃する／同じ数字2枚で攻撃を止める／札を交換して立て直す／仲間で狙う役が変わる。</p>
+    <button class="btn primary" onclick="showTitle()">拠点へ戻る</button>
+    <button class="btn" onclick="startRun()">通常探索へ</button>`;
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+const container = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+container.insertBefore(renderer.domElement, container.firstChild);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x14100b);
+scene.fog = new THREE.Fog(0x14100b, 9, 18);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 60);
+camera.position.set(0, 4.6, 7.4);
+camera.lookAt(0, 0.9, -0.6);
+function resize(){
+  const w = container.clientWidth, h = container.clientHeight;
+  renderer.setSize(w, h); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+resize(); addEventListener("resize", resize);
+
+scene.add(new THREE.AmbientLight(0x554433, 1.2));
+const lanternLight = new THREE.PointLight(0xffa845, 60, 14, 1.8);
+lanternLight.position.set(0, 1.5, 2.9);
+scene.add(lanternLight);
+
+// 部屋
+const stone = new THREE.MeshStandardMaterial({color:0x3a342c, roughness:0.95});
+const darkStone = new THREE.MeshStandardMaterial({color:0x2a251e, roughness:1});
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(13, 11), darkStone);
+floor.rotation.x = -Math.PI/2; floor.position.z = -1; scene.add(floor);
+const backWall = new THREE.Mesh(new THREE.BoxGeometry(13, 5.4, 0.4), stone);
+backWall.position.set(0, 2.7, -5.4); scene.add(backWall);
+for(const sx of [-1,1]){
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.4, 11), stone);
+  wall.position.set(sx*6.4, 2.7, -1); scene.add(wall);
+}
+// 扉（灯りで行き先を見せる）
+const doorMat = new THREE.MeshStandardMaterial({color:0x4a3a22, emissive:0xff9a3c, emissiveIntensity:0.55});
+const doors = [];
+for(const dx of [-3.6, 0, 3.6]){
+  const g = new THREE.Group();
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.7, 3.1, 0.18),
+    new THREE.MeshStandardMaterial({color:0x584a36, roughness:0.9}));
+  frame.position.y = 1.55;
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 2.6), doorMat);
+  glow.position.set(0, 1.5, 0.11);
+  g.add(frame, glow); g.position.set(dx, 0, -5.1);
+  scene.add(g); doors.push(glow);
+}
+// ランタン（プレイヤー）
+const lantern = new THREE.Group();
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.1),
+  new THREE.MeshStandardMaterial({color:0x6b5636}));
+pole.position.y = 0.55;
+const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12),
+  new THREE.MeshStandardMaterial({color:0xffc873, emissive:0xffa845, emissiveIntensity:2.4}));
+bulb.position.y = 1.18;
+lantern.add(pole, bulb); lantern.position.set(0, 0, 2.9);
+scene.add(lantern);
+
+function enemyMesh(kind){
+  const g = new THREE.Group();
+  const rock = new THREE.MeshStandardMaterial({color:0x6f6a61, roughness:0.95});
+  const dark = new THREE.MeshStandardMaterial({color:0x4c463e, roughness:1});
+  if(kind==="bug"){
+    const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.85, 18, 14), rock); b1.position.y = 0.55;
+    const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), dark); b2.position.set(0.55, 0.4, 0.35);
+    const b3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), dark); b3.position.set(-0.6, 0.35, 0.3);
+    const eyeM = new THREE.MeshStandardMaterial({color:0xff4444, emissive:0xcc2222, emissiveIntensity:1.6});
+    const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeM); e1.position.set(0.25, 0.75, 0.78);
+    const e2 = e1.clone(); e2.position.x = -0.25;
+    g.add(b1, b2, b3, e1, e2);
+  } else if(kind==="feather"){
+    const bodyM = new THREE.MeshStandardMaterial({color:0x8a97a8, roughness:0.7, metalness:0.35});
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.7, 12), bodyM); body.position.y = 1.15;
+    const wingGeo = new THREE.BoxGeometry(1.7, 0.08, 0.7);
+    const w1 = new THREE.Mesh(wingGeo, bodyM); w1.position.set(-1.05, 1.45, 0); w1.rotation.z = 0.5;
+    const w2 = new THREE.Mesh(wingGeo, bodyM); w2.position.set(1.05, 1.45, 0); w2.rotation.z = -0.5;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), bodyM); head.position.y = 2.1;
+    g.add(body, w1, w2, head);
+  } else if(kind==="guardian"){
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1.7, 2.1, 1.0), rock); torso.position.y = 1.45;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), dark); head.position.y = 2.9;
+    const aGeo = new THREE.BoxGeometry(0.45, 1.7, 0.45);
+    const a1 = new THREE.Mesh(aGeo, dark); a1.position.set(-1.2, 1.4, 0);
+    const a2 = new THREE.Mesh(aGeo, dark); a2.position.set(1.2, 1.4, 0);
+    const crackM = new THREE.MeshStandardMaterial({color:0xffb545, emissive:0xff8a3c, emissiveIntensity:1.8});
+    const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.2, 0.03), crackM); c1.position.set(0.25, 1.5, 0.52);
+    const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, 0.03), crackM); c2.position.set(0.05, 1.9, 0.52);
+    g.add(torso, head, a1, a2, c1, c2);
+  } else if(kind==="boss"){
+    const bodyM = new THREE.MeshStandardMaterial({color:0x3d332a, roughness:0.85, metalness:0.25});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.3, 2.7, 1.5), bodyM); body.position.y = 1.35;
+    const doorM = new THREE.MeshStandardMaterial({color:0xff7a2a, emissive:0xff5a00, emissiveIntensity:2.2});
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.5), doorM); door.position.set(0, 1.1, 0.76);
+    const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 1.1), dark); chim.position.set(0.6, 3.2, 0);
+    const bossLight = new THREE.PointLight(0xff6a22, 30, 8, 1.8); bossLight.position.set(0, 1.4, 1.6);
+    g.add(body, door, chim, bossLight);
+  }
+  g.position.set(0, 0, -2.4);
+  return g;
+}
+let enemyGroup = null, hitT = 0, stopT = 0;
+window.Scene3D = {
+  setRoom(kind){
+    if(enemyGroup){ scene.remove(enemyGroup); enemyGroup = null; }
+    if(kind){ enemyGroup = enemyMesh(kind); scene.add(enemyGroup); }
+  },
+  hit(){ hitT = 0.45; },
+  stopped(){ stopT = 0.6; },
+};
+const clock = new THREE.Clock();
+function tick(){
+  requestAnimationFrame(tick);
+  const t = clock.getElapsedTime();
+  lanternLight.intensity = 55 + Math.sin(t*11)*6 + Math.sin(t*23.7)*4;
+  bulb.material.emissiveIntensity = 2.2 + Math.sin(t*11)*0.35;
+  doors.forEach((d,i)=>{ d.material.emissiveIntensity = 0.45 + Math.sin(t*2 + i*2.1)*0.18; });
+  if(enemyGroup){
+    enemyGroup.position.y = Math.sin(t*1.6)*0.06;
+    let sx = 1, rz = 0;
+    if(hitT>0){ hitT -= 0.016; sx = 1 + Math.sin(hitT*30)*0.05; }
+    if(stopT>0){ stopT -= 0.016; rz = Math.sin(stopT*22)*0.07; }
+    enemyGroup.scale.setScalar(sx); enemyGroup.rotation.z = rz;
+  }
+  renderer.render(scene, camera);
+}
+tick();
+</script>
+<script>
+  window.addEventListener("load", ()=>{ showTitle(); });
+</script>
+</body>
+</html>

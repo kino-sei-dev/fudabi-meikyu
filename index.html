@@ -21,7 +21,7 @@
   .chip b{color:var(--amber);}
   .hpbar{width:86px;height:8px;background:#3a2f22;border-radius:99px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:6px;}
   .hpbar i{display:block;height:100%;background:linear-gradient(90deg,#e8a13c,#ffb545);}
-  #scene{position:relative;height:300px;background:#000;overflow:hidden;flex:none;}
+  #scene{position:relative;height:344px;background:#000;overflow:hidden;flex:none;}
   #scene canvas{display:block;width:100%;height:100%;}
   #sceneLabel{position:absolute;left:10px;bottom:8px;background:rgba(10,8,6,.72);border:1px solid var(--line);
     border-radius:8px;padding:4px 10px;font-size:13px;color:var(--ink);}
@@ -334,9 +334,12 @@ function hud(){
   $("hudCoin").textContent = run ? run.coins : 0;
   $("hudFloor").textContent = run ? run.floorLabel : "拠点";
 }
-function setScene(label, enemyKind){
+function setScene(label, enemyKind, nodeKey){
   $("sceneLabel").textContent = label;
-  if(window.Scene3D) Scene3D.setRoom(enemyKind || null);
+  if(window.Scene3D){
+    if(nodeKey) Scene3D.gotoNode(nodeKey);
+    if(enemyKind) Scene3D.showEnemy(enemyKind);
+  }
 }
 function floatNum(text, cls, xPct){
   const el = document.createElement("div");
@@ -364,7 +367,7 @@ function showTitle(){
   const saved = loadRun();
   if(saved && saved.active) run = saved; else if(!run || !run.active) run = null;
   hud();
-  setScene("拠点 ─ ランタンの工房", null);
+  setScene("拠点 ─ ランタンの工房", null, "title");
   let html = `<div class="titleBig">札灯の迷宮</div><div class="titleSub">ふだびのめいきゅう</div>`;
   html += `<p class="story">古い地下工房を、ランタンを片手に進む。通路の向こうに敵が見えたら、進む道を選ぶ。接敵したら、手札の数字やマークをそろえ、作った役で敵の攻撃を止めたり、一気に倒したりする。</p>`;
   if(run && run.active) html += `<button class="btn primary" onclick="resumeRun()">つづきから（${run.floorLabel}・体力${run.hp}）</button>`;
@@ -396,6 +399,7 @@ function nextRnd(){
   return run.rndState / 2147483648;
 }
 function startRun(){
+  if(window.Scene3D) Scene3D.resetRun();
   const seed = (Date.now() % 2147483647) + 1;
   run = newRunState(seed);
   const rnd = mulberry32(seed);
@@ -435,9 +439,7 @@ function advanceTo(pos, floorLabel){
 }
 function renderExplore(){
   B = null; handWrap.classList.add("hidden"); hud();
-  const enemyAt = {f1_battle:"ishikumo", f3_battle:"tetsuu", boss:"bannin"}[run.pos];
-  const branchEnemy = run.pos==="f2_branch" ? "haiu" : null;
-  setScene(run.floorLabel + " ─ " + sceneName(run.pos), enemyAt || branchEnemy);
+  setScene(run.floorLabel + " ─ " + sceneName(run.pos), null, run.pos);
   let html = `<h2 class="floor">${run.floorLabel}</h2>`;
   html += `<p class="story">${posStory(run.pos)}</p>`;
   html += alliesRow() + relicTag();
@@ -481,6 +483,7 @@ function gotoBattle(enemyKey, nextPos){
   startBattle(enemyKey, { onWin:()=>{ afterWin(enemyKey, nextPos); } });
 }
 function afterWin(enemyKey, nextPos){
+  if(window.Scene3D) Scene3D.defeatEnemy(enemyKey);
   const e = ENEMIES[enemyKey];
   run.coins += e.strong ? 6 : 4;
   run.battlesWon++;
@@ -621,8 +624,9 @@ function startBattle(enemyKey, opts){
   noteCodex("enemies", enemyKey);
   const deck = opts.riggedDeck ? opts.riggedDeck.slice()
     : shuffle(run.deck, Math.random);
+  const nodeKey = {ishikumo:"f1_battle", kunren:"f1_battle", haiu:"f2_left", morie:"f2_right", tetsuu:"f3_battle", bannin:"boss"}[enemyKey];
   B = {
-    enemyKey, enemyHp: e.hp, intentIdx: 0,
+    enemyKey, enemyHp: e.hp, intentIdx: 0, nodeKey,
     deck, hand: [], discard: [], reshuffled: false,
     exchangesLeft: 2 + ((opts.relic || (run && run.relic)) === "firebox" ? 1 : 0),
     exchangeBonus: 0, firstHitTaken: false,
@@ -634,7 +638,8 @@ function startBattle(enemyKey, opts){
   };
   drawTo(7);
   handWrap.classList.remove("hidden");
-  setScene((run ? run.floorLabel : "導入探索") + " ─ 戦闘", e.kind);
+  setScene((run ? run.floorLabel : "導入探索") + " ─ 戦闘", enemyKey, nodeKey);
+  if(window.Scene3D) Scene3D.engage();
   renderBattle();
 }
 function curIntent(){ return ENEMIES[B.enemyKey].intents[B.intentIdx % ENEMIES[B.enemyKey].intents.length]; }
@@ -869,9 +874,10 @@ function rigged(handCards, rest){
   return [...shuffled, ...seq.reverse()];
 }
 function startIntro(){
+  if(window.Scene3D) Scene3D.resetRun();
   intro = { step: 0 };
   run = null; hud();
-  setScene("導入探索", "bug");
+  setScene("導入探索", "ishikumo", "f1_battle");
   main.innerHTML = `<h2 class="floor">導入探索</h2>
     <p class="story">行き先を押す。札を押す。説明は、それを使う場面で一つずつ出す。</p>
     <button class="btn primary" onclick="introBattle1()">入口から小型敵へ</button>
@@ -917,126 +923,609 @@ import * as THREE from "three";
 const container = document.getElementById("scene");
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
 container.insertBefore(renderer.domElement, container.firstChild);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x14100b);
-scene.fog = new THREE.Fog(0x14100b, 9, 18);
-const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 60);
-camera.position.set(0, 4.6, 7.4);
-camera.lookAt(0, 0.9, -0.6);
+scene.background = new THREE.Color(0x0d0a07);
+scene.fog = new THREE.FogExp2(0x0d0a07, 0.026);
+const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 80);
 function resize(){
   const w = container.clientWidth, h = container.clientHeight;
   renderer.setSize(w, h); camera.aspect = w/h; camera.updateProjectionMatrix();
 }
 resize(); addEventListener("resize", resize);
 
-scene.add(new THREE.AmbientLight(0x554433, 1.2));
-const lanternLight = new THREE.PointLight(0xffa845, 60, 14, 1.8);
-lanternLight.position.set(0, 1.5, 2.9);
-scene.add(lanternLight);
-
-// 部屋
-const stone = new THREE.MeshStandardMaterial({color:0x3a342c, roughness:0.95});
-const darkStone = new THREE.MeshStandardMaterial({color:0x2a251e, roughness:1});
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(13, 11), darkStone);
-floor.rotation.x = -Math.PI/2; floor.position.z = -1; scene.add(floor);
-const backWall = new THREE.Mesh(new THREE.BoxGeometry(13, 5.4, 0.4), stone);
-backWall.position.set(0, 2.7, -5.4); scene.add(backWall);
-for(const sx of [-1,1]){
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.4, 11), stone);
-  wall.position.set(sx*6.4, 2.7, -1); scene.add(wall);
+// ----------  procedural textures ----------
+function canvasTex(size, draw, rx, ry){
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  draw(c.getContext("2d"), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx||1, ry||1);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
-// 扉（灯りで行き先を見せる）
-const doorMat = new THREE.MeshStandardMaterial({color:0x4a3a22, emissive:0xff9a3c, emissiveIntensity:0.55});
-const doors = [];
-for(const dx of [-3.6, 0, 3.6]){
-  const g = new THREE.Group();
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.7, 3.1, 0.18),
-    new THREE.MeshStandardMaterial({color:0x584a36, roughness:0.9}));
-  frame.position.y = 1.55;
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 2.6), doorMat);
-  glow.position.set(0, 1.5, 0.11);
-  g.add(frame, glow); g.position.set(dx, 0, -5.1);
-  scene.add(g); doors.push(glow);
-}
-// ランタン（プレイヤー）
-const lantern = new THREE.Group();
-const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.1),
-  new THREE.MeshStandardMaterial({color:0x6b5636}));
-pole.position.y = 0.55;
-const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12),
-  new THREE.MeshStandardMaterial({color:0xffc873, emissive:0xffa845, emissiveIntensity:2.4}));
-bulb.position.y = 1.18;
-lantern.add(pole, bulb); lantern.position.set(0, 0, 2.9);
-scene.add(lantern);
-
-function enemyMesh(kind){
-  const g = new THREE.Group();
-  const rock = new THREE.MeshStandardMaterial({color:0x6f6a61, roughness:0.95});
-  const dark = new THREE.MeshStandardMaterial({color:0x4c463e, roughness:1});
-  if(kind==="bug"){
-    const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.85, 18, 14), rock); b1.position.y = 0.55;
-    const b2 = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), dark); b2.position.set(0.55, 0.4, 0.35);
-    const b3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), dark); b3.position.set(-0.6, 0.35, 0.3);
-    const eyeM = new THREE.MeshStandardMaterial({color:0xff4444, emissive:0xcc2222, emissiveIntensity:1.6});
-    const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeM); e1.position.set(0.25, 0.75, 0.78);
-    const e2 = e1.clone(); e2.position.x = -0.25;
-    g.add(b1, b2, b3, e1, e2);
-  } else if(kind==="feather"){
-    const bodyM = new THREE.MeshStandardMaterial({color:0x8a97a8, roughness:0.7, metalness:0.35});
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.7, 12), bodyM); body.position.y = 1.15;
-    const wingGeo = new THREE.BoxGeometry(1.7, 0.08, 0.7);
-    const w1 = new THREE.Mesh(wingGeo, bodyM); w1.position.set(-1.05, 1.45, 0); w1.rotation.z = 0.5;
-    const w2 = new THREE.Mesh(wingGeo, bodyM); w2.position.set(1.05, 1.45, 0); w2.rotation.z = -0.5;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), bodyM); head.position.y = 2.1;
-    g.add(body, w1, w2, head);
-  } else if(kind==="guardian"){
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(1.7, 2.1, 1.0), rock); torso.position.y = 1.45;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), dark); head.position.y = 2.9;
-    const aGeo = new THREE.BoxGeometry(0.45, 1.7, 0.45);
-    const a1 = new THREE.Mesh(aGeo, dark); a1.position.set(-1.2, 1.4, 0);
-    const a2 = new THREE.Mesh(aGeo, dark); a2.position.set(1.2, 1.4, 0);
-    const crackM = new THREE.MeshStandardMaterial({color:0xffb545, emissive:0xff8a3c, emissiveIntensity:1.8});
-    const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.2, 0.03), crackM); c1.position.set(0.25, 1.5, 0.52);
-    const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, 0.03), crackM); c2.position.set(0.05, 1.9, 0.52);
-    g.add(torso, head, a1, a2, c1, c2);
-  } else if(kind==="boss"){
-    const bodyM = new THREE.MeshStandardMaterial({color:0x3d332a, roughness:0.85, metalness:0.25});
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.3, 2.7, 1.5), bodyM); body.position.y = 1.35;
-    const doorM = new THREE.MeshStandardMaterial({color:0xff7a2a, emissive:0xff5a00, emissiveIntensity:2.2});
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.5), doorM); door.position.set(0, 1.1, 0.76);
-    const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 1.1), dark); chim.position.set(0.6, 3.2, 0);
-    const bossLight = new THREE.PointLight(0xff6a22, 30, 8, 1.8); bossLight.position.set(0, 1.4, 1.6);
-    g.add(body, door, chim, bossLight);
+function rnd(seed){ let a = seed; return ()=>{ a = (a*1103515245+12345)%2147483648; return a/2147483648; }; }
+const wallTex = canvasTex(256, (g,s)=>{
+  g.fillStyle = "#3b352c"; g.fillRect(0,0,s,s);
+  const r = rnd(7);
+  const rows = 4, bh = s/rows;
+  for(let y=0;y<rows;y++){
+    const off = (y%2)*0.5;
+    for(let x=-1;x<3;x++){
+      const w = s/2, px = (x+off)*w, py = y*bh;
+      const v = 8 + Math.floor(r()*14);
+      g.fillStyle = "rgb("+(86+v)+","+(76+v)+","+(62+v)+")";
+      g.fillRect(px+3, py+3, w-6, bh-6);
+      g.fillStyle = "rgba(255,240,200,0.06)"; g.fillRect(px+3, py+3, w-6, 4);
+      g.fillStyle = "rgba(0,0,0,0.16)";
+      for(let n=0;n<7;n++) g.fillRect(px+r()*w, py+r()*bh, 2, 2);
+    }
   }
-  g.position.set(0, 0, -2.4);
+}, 3, 1.4);
+const floorTex = canvasTex(256, (g,s)=>{
+  g.fillStyle = "#241f19"; g.fillRect(0,0,s,s);
+  const r = rnd(21); const n = 2, w = s/n;
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+    const v = Math.floor(r()*12);
+    g.fillStyle = "rgb("+(74+v)+","+(66+v)+","+(54+v)+")";
+    g.fillRect(x*w+3, y*w+3, w-6, w-6);
+    g.fillStyle = "rgba(0,0,0,0.20)";
+    for(let i=0;i<10;i++) g.fillRect(x*w+r()*w, y*w+r()*w, 3, 2);
+  }
+}, 4, 4);
+const woodTex = canvasTex(128, (g,s)=>{
+  g.fillStyle = "#5a4128"; g.fillRect(0,0,s,s);
+  const r = rnd(3);
+  for(let i=0;i<26;i++){ g.strokeStyle = "rgba(30,18,8,"+(0.12+r()*0.2)+")"; g.beginPath();
+    const y = r()*s; g.moveTo(0,y); g.bezierCurveTo(s*0.3, y+4, s*0.6, y-4, s, y); g.stroke(); }
+}, 1, 2);
+const glowTex = canvasTex(128, (g,s)=>{
+  const gr = g.createRadialGradient(s/2,s/2,2, s/2,s/2,s/2);
+  gr.addColorStop(0, "rgba(255,210,130,1)"); gr.addColorStop(0.35, "rgba(255,160,60,0.45)");
+  gr.addColorStop(1, "rgba(255,140,40,0)");
+  g.fillStyle = gr; g.fillRect(0,0,s,s);
+});
+const slashTex = canvasTex(256, (g,s)=>{
+  const gr = g.createLinearGradient(0,0,s,0);
+  gr.addColorStop(0,"rgba(255,255,255,0)"); gr.addColorStop(0.5,"rgba(255,255,255,0.95)");
+  gr.addColorStop(1,"rgba(255,255,255,0)");
+  g.fillStyle = gr; g.fillRect(0, s*0.30, s, s*0.40);
+  g.fillStyle = "rgba(255,220,150,0.85)"; g.fillRect(0, s*0.44, s, s*0.12);
+});
+const crestTex = canvasTex(256, (g,s)=>{
+  g.clearRect(0,0,s,s);
+  g.strokeStyle = "rgba(255,190,90,0.95)"; g.lineWidth = 7;
+  g.beginPath(); g.arc(s/2,s/2,s*0.40,0,Math.PI*2); g.stroke();
+  g.lineWidth = 3; g.beginPath(); g.arc(s/2,s/2,s*0.31,0,Math.PI*2); g.stroke();
+  g.fillStyle = "rgba(255,210,130,0.95)"; g.font = "bold 44px serif"; g.textAlign = "center";
+  const suits = ["♠","♥","♦","♣"];
+  suits.forEach((su,i)=>{ const a = i*Math.PI/2 - Math.PI/2;
+    g.fillText(su, s/2 + Math.cos(a)*s*0.355, s/2 + Math.sin(a)*s*0.355 + 15); });
+});
+crestTex.wrapS = crestTex.wrapT = THREE.ClampToEdgeWrapping;
+
+// ----------  materials ----------
+const wallMat = new THREE.MeshStandardMaterial({map:wallTex, roughness:0.96});
+const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:1});
+const woodMat = new THREE.MeshStandardMaterial({map:woodTex, roughness:0.85});
+const rockMat = new THREE.MeshStandardMaterial({color:0x77706a, roughness:0.95});
+const darkRockMat = new THREE.MeshStandardMaterial({color:0x4e463e, roughness:1});
+const ironMat = new THREE.MeshStandardMaterial({color:0x5d6672, roughness:0.45, metalness:0.7});
+
+// ----------  lights ----------
+scene.add(new THREE.AmbientLight(0x40382c, 1.5));
+scene.add(new THREE.HemisphereLight(0x584a38, 0x14100c, 0.7));
+const lanternLight = new THREE.PointLight(0xffa845, 90, 17, 1.9);
+scene.add(lanternLight);
+const branchLight = new THREE.PointLight(0xff9a3c, 40, 14, 1.8);
+branchLight.position.set(0, 3, -39); scene.add(branchLight);
+
+// ----------  world building helpers ----------
+const world = new THREE.Group(); scene.add(world);
+function box(w,h,d,mat,x,y,z,parent){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z); (parent||world).add(m); return m;
+}
+function addFloor(x,z,w,d){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w,d), floorMat);
+  m.rotation.x = -Math.PI/2; m.position.set(x, 0, z); world.add(m); return m;
+}
+function addWallX(x,z,len,h){ return box(len, h||4.6, 0.5, wallMat, x, (h||4.6)/2, z); } // wall along X
+function addWallZ(x,z,len,h){ return box(0.5, h||4.6, len, wallMat, x, (h||4.6)/2, z); } // wall along Z
+function torch(x,y,z,scale){
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.05,0.85), woodMat);
+  pole.position.y = -0.2;
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8),
+    new THREE.MeshStandardMaterial({color:0xffc873, emissive:0xff8a2a, emissiveIntensity:3}));
+  flame.position.y = 0.32; flame.scale.y = 1.5;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.85}));
+  spr.scale.setScalar(1.7); spr.position.y = 0.32;
+  g.add(pole, flame, spr); g.position.set(x,y,z); g.userData.flame = flame;
+  world.add(g); return g;
+}
+const torches = [];
+function door(x, z, color, label){
+  const g = new THREE.Group();
+  const frame = box(2.0, 3.3, 0.3, darkRockMat, 0, 1.65, 0, g);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.9), woodMat);
+  panel.position.set(0, 1.5, 0.17); g.add(panel);
+  const slitMat = new THREE.MeshStandardMaterial({color:0x221a10, emissive:new THREE.Color(color), emissiveIntensity:2.4});
+  const slit = new THREE.Mesh(new THREE.PlaneGeometry(0.10, 2.7), slitMat);
+  slit.position.set(0.45, 1.5, 0.19); g.add(slit);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.5, color:new THREE.Color(color)}));
+  spr.scale.set(2.6, 3.4, 1); spr.position.set(0.3, 1.5, 0.5); g.add(spr);
+  g.position.set(x, 0, z); world.add(g); return g;
+}
+function pillar(x,z){
+  const g = new THREE.Group();
+  const base = box(1.1, 0.5, 1.1, darkRockMat, 0, 0.25, 0, g);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 3.4, 10), wallMat);
+  shaft.position.y = 2.2; g.add(shaft);
+  box(1.1, 0.45, 1.1, darkRockMat, 0, 4.1, 0, g);
+  g.position.set(x, 0, z); world.add(g); return g;
+}
+function lightTrail(x1,z1,x2,z2,color){
+  const len = Math.hypot(x2-x1, z2-z1);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, len),
+    new THREE.MeshStandardMaterial({color:0x181008, emissive:new THREE.Color(color), emissiveIntensity:1.5, transparent:true, opacity:0.85}));
+  m.rotation.x = -Math.PI/2; m.rotation.z = Math.atan2(x2-x1, z2-z1);
+  m.position.set((x1+x2)/2, 0.02, (z1+z2)/2); world.add(m); return m;
+}
+
+// ----------  dungeon layout ----------
+// 入口の間
+addFloor(0, -1, 11, 16); addWallX(0, -9.2, 11); addWallZ(-5.5, -1, 16); addWallZ(5.5, -1, 16);
+torches.push(torch(-5.1, 2.2, -6), torch(5.1, 2.2, -6), torch(-5.1, 2.2, 2), torch(5.1, 2.2, 2));
+// 通路1
+addFloor(0, -14, 4.8, 10); addWallZ(-2.4, -14, 10); addWallZ(2.4, -14, 10);
+torches.push(torch(-2.0, 2.2, -14), torch(2.0, 2.2, -17.5));
+// 休憩所
+addFloor(0, -23, 11, 8); addWallX(0, -27.2, 11); addWallZ(-5.5, -23, 8); addWallZ(5.5, -23, 8);
+(function restProps(){
+  box(2.6, 0.14, 0.8, woodMat, -2.6, 0.55, -24.5); // ベンチ
+  box(0.14, 0.55, 0.7, woodMat, -3.7, 0.27, -24.5); box(0.14, 0.55, 0.7, woodMat, -1.5, 0.27, -24.5);
+  const g = new THREE.Group(); // 大ランタン
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.09,2.2), ironMat); pole.position.y = 1.1;
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.30, 14, 10),
+    new THREE.MeshStandardMaterial({color:0xffd9a0, emissive:0xffa845, emissiveIntensity:2.6}));
+  lamp.position.y = 2.35;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.9}));
+  spr.scale.setScalar(3.4); spr.position.y = 2.35;
+  g.add(pole, lamp, spr); g.position.set(2.6, 0, -24.3); world.add(g);
+  door(0, -27.0, 0xffb545);
+})();
+// 通路2
+addFloor(0, -31, 4.8, 8); addWallZ(-2.4, -31, 8); addWallZ(2.4, -31, 8);
+torches.push(torch(2.0, 2.2, -31));
+// 分岐の広間
+addFloor(0, -39, 13, 8); addWallX(0, -43.2, 13); addWallZ(-6.5, -39, 8); addWallZ(6.5, -39, 8);
+pillar(-4.6, -37); pillar(4.6, -37); pillar(-4.6, -41.5); pillar(4.6, -41.5);
+door(-3.6, -43.0, 0xffc873); door(3.6, -43.0, 0xff8a3c);
+lightTrail(-0.4, -37.5, -3.4, -42.6, 0xffc873);
+lightTrail(0.4, -37.5, 3.4, -42.6, 0xff8a3c);
+torches.push(torch(-6.1, 2.3, -36), torch(6.1, 2.3, -36));
+// 左の戦闘区画（灰羽）と工房A
+addFloor(-6.5, -47.5, 9, 9); addWallZ(-11, -47.5, 9); addWallX(-6.5, -52.2, 9);
+addFloor(-7, -57, 10, 10); addWallX(-7, -62.2, 10); addWallZ(-12, -57, 10); addWallZ(-2, -57, 10);
+// 右の戦闘区画（石の守衛）と宝箱の間
+addFloor(6.5, -47.5, 9, 9); addWallZ(11, -47.5, 9); addWallX(6.5, -52.2, 9);
+addFloor(7, -57, 10, 10); addWallX(7, -62.2, 10); addWallZ(2, -57, 10); addWallZ(12, -57, 10);
+// 合流通路
+addFloor(-7, -66, 3.2, 8); addFloor(7, -66, 3.2, 8);
+addFloor(0, -71, 17.2, 2.6);
+// 地下3階の間（鉄羽）
+addFloor(0, -75.5, 12, 9); addWallX(0, -80.2, 12); addWallZ(-6, -75.5, 9); addWallZ(6, -75.5, 9);
+torches.push(torch(-5.6, 2.2, -73), torch(5.6, 2.2, -73), torch(-5.6, 2.2, -78), torch(5.6, 2.2, -78));
+// 通路3と最後の工房
+addFloor(0, -82, 4.8, 4); addWallZ(-2.4, -82, 4); addWallZ(2.4, -82, 4);
+addFloor(0, -88, 12, 8); addWallX(0, -92.2, 12); addWallZ(-6, -88, 8); addWallZ(6, -88, 8);
+// 通路4とボスの間
+addFloor(0, -95, 5.2, 6); addWallZ(-2.6, -95, 6); addWallZ(2.6, -95, 6);
+addFloor(0, -104, 15, 12); addWallX(0, -110.2, 15); addWallZ(-7.5, -104, 12); addWallZ(7.5, -104, 12);
+pillar(-5.2, -101); pillar(5.2, -101); pillar(-5.2, -107.5); pillar(5.2, -107.5);
+torches.push(torch(-7.1, 2.4, -100), torch(7.1, 2.4, -100));
+
+function workshopProps(cx, cz){
+  const g = new THREE.Group();
+  box(3.2, 0.16, 1.4, woodMat, 0, 0.95, 0, g); // 作業台
+  box(0.16, 0.95, 1.2, woodMat, -1.4, 0.47, 0, g); box(0.16, 0.95, 1.2, woodMat, 1.4, 0.47, 0, g);
+  box(0.7, 0.35, 0.5, ironMat, -0.8, 1.2, 0, g); // 金床ふう
+  for(let i=0;i<3;i++){ // 台の上の札（光る長方形）
+    const card = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.5),
+      new THREE.MeshStandardMaterial({color:0xf7f2e7, emissive:0xffca7a, emissiveIntensity:0.55, side:THREE.DoubleSide}));
+    card.rotation.x = -Math.PI/2; card.rotation.z = i*0.5; card.position.set(0.3+i*0.45, 1.04, 0.15-i*0.1); g.add(card);
+  }
+  const lampSpr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.8}));
+  lampSpr.scale.setScalar(2.6); lampSpr.position.set(0, 2.6, 0); g.add(lampSpr);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8),
+    new THREE.MeshStandardMaterial({color:0xffd9a0, emissive:0xffa845, emissiveIntensity:2.6}));
+  lamp.position.y = 2.6; g.add(lamp);
+  g.position.set(cx, 0, cz); world.add(g);
+}
+workshopProps(-7, -58); workshopProps(0, -89);
+(function chestProps(){
+  const g = new THREE.Group();
+  box(1.5, 0.75, 0.95, woodMat, 0, 0.38, 0, g);
+  const lid = box(1.5, 0.3, 0.95, woodMat, 0, 0.85, -0.1, g); lid.rotation.x = -0.25;
+  box(1.56, 0.12, 1.0, ironMat, 0, 0.45, 0, g);
+  const glowM = new THREE.MeshStandardMaterial({color:0xffd97a, emissive:0xffb545, emissiveIntensity:2.2});
+  const slit = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.07), glowM);
+  slit.position.set(0, 0.78, 0.49); g.add(slit);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.65}));
+  spr.scale.set(2.6, 1.8, 1); spr.position.y = 0.9; g.add(spr);
+  g.position.set(7, 0, -58.5); world.add(g);
+})();
+
+// ----------  enemies ----------
+function eye(x,y,z,r,parent){
+  const e = new THREE.Mesh(new THREE.SphereGeometry(r||0.07, 8, 8),
+    new THREE.MeshStandardMaterial({color:0xff5545, emissive:0xdd3322, emissiveIntensity:2}));
+  e.position.set(x,y,z); parent.add(e); return e;
+}
+function buildBug(big){
+  const g = new THREE.Group(); const s = big ? 1.25 : 1;
+  for(let i=0;i<5;i++){
+    const seg = new THREE.Mesh(new THREE.SphereGeometry((0.62 - i*0.07)*s, 14, 10), i%2 ? darkRockMat : rockMat);
+    seg.position.set(0, (0.5 - i*0.03)*s, (i*0.52 - 0.4)*s); seg.scale.y = 0.82; g.add(seg);
+  }
+  for(let i=0;i<3;i++) for(const sx of [-1,1]){
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045*s, 0.03*s, 0.85*s), darkRockMat);
+    leg.position.set(sx*0.62*s, 0.3*s, (i*0.5 - 0.3)*s); leg.rotation.z = sx*0.9; g.add(leg);
+  }
+  eye(0.22*s, 0.62*s, -0.78*s, 0.075*s, g); eye(-0.22*s, 0.62*s, -0.78*s, 0.075*s, g);
+  const m1 = new THREE.Mesh(new THREE.ConeGeometry(0.09*s, 0.34*s, 6), darkRockMat);
+  m1.rotation.x = Math.PI/2.3; m1.position.set(0.2*s, 0.34*s, -0.85*s); g.add(m1);
+  const m2 = m1.clone(); m2.position.x = -0.2*s; g.add(m2);
+  g.userData.sway = true;
   return g;
 }
-let enemyGroup = null, hitT = 0, stopT = 0;
-window.Scene3D = {
-  setRoom(kind){
-    if(enemyGroup){ scene.remove(enemyGroup); enemyGroup = null; }
-    if(kind){ enemyGroup = enemyMesh(kind); scene.add(enemyGroup); }
-  },
-  hit(){ hitT = 0.45; },
-  stopped(){ stopT = 0.6; },
+function buildFeather(metal){
+  const g = new THREE.Group();
+  const bodyM = metal ? new THREE.MeshStandardMaterial({color:0x707a88, roughness:0.35, metalness:0.8})
+                      : new THREE.MeshStandardMaterial({color:0x93a3b5, roughness:0.65, metalness:0.25});
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.62, 16, 12), bodyM);
+  body.scale.set(0.85, 1.25, 1.5); body.position.y = 1.25; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.30, 14, 10), bodyM);
+  head.position.set(0, 2.15, -0.55); g.add(head);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.42, 8),
+    new THREE.MeshStandardMaterial({color:0xd8b25e, roughness:0.5}));
+  beak.rotation.x = -Math.PI/2; beak.position.set(0, 2.1, -0.95); g.add(beak);
+  eye(0.14, 2.25, -0.78, 0.05, g); eye(-0.14, 2.25, -0.78, 0.05, g);
+  const wings = [];
+  for(const sx of [-1,1]){
+    const w = new THREE.Group();
+    for(let i=0;i<4;i++){
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.5 - i*0.22, 6), bodyM);
+      f.rotation.z = sx * (Math.PI/2 - 0.18 - i*0.13); f.position.x = sx * (0.75 + i*0.16); f.position.y = -i*0.10;
+      f.scale.z = 0.28; w.add(f);
+    }
+    w.position.set(sx*0.35, 1.75, 0.1); g.add(w); wings.push(w);
+  }
+  for(let i=0;i<3;i++){
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.9, 6), bodyM);
+    t.rotation.x = Math.PI/2.4; t.position.set((i-1)*0.16, 1.0, 1.05); g.add(t);
+  }
+  g.userData.wings = wings;
+  return g;
+}
+function buildGuardian(){
+  const g = new THREE.Group();
+  box(2.0, 0.4, 1.5, darkRockMat, 0, 0.2, 0, g); // 台座
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 1.02, 1.9, 6), rockMat);
+  torso.position.y = 1.6; g.add(torso);
+  const head = box(0.72, 0.62, 0.72, darkRockMat, 0, 2.85, 0, g);
+  const visor = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.09),
+    new THREE.MeshStandardMaterial({color:0x331f08, emissive:0xffb545, emissiveIntensity:2.2}));
+  visor.position.set(0, 2.9, -0.37); visor.rotation.y = Math.PI; g.add(visor);
+  for(const sx of [-1,1]){
+    const arm = new THREE.Group();
+    const up = box(0.42, 1.1, 0.42, rockMat, 0, -0.5, 0, arm);
+    const fist = new THREE.Mesh(new THREE.SphereGeometry(0.30, 10, 8), darkRockMat);
+    fist.position.y = -1.25; arm.add(fist);
+    arm.position.set(sx*1.15, 2.35, 0); arm.rotation.z = sx*0.12; g.add(arm);
+  }
+  box(1.15, 1.5, 0.18, darkRockMat, -1.35, 1.35, -0.35, g); // 盾
+  const crackM = new THREE.MeshStandardMaterial({color:0x2a1a08, emissive:0xff8a3c, emissiveIntensity:2.0});
+  const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.03), crackM);
+  c1.position.set(0.22, 1.7, -0.56); c1.rotation.y = Math.PI; g.add(c1);
+  const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 0.03), crackM);
+  c2.position.set(0.02, 2.05, -0.56); c2.rotation.y = Math.PI; g.add(c2);
+  const c3 = c1.clone(); c3.position.x = -0.3; c3.scale.y = 0.6; g.add(c3);
+  return g;
+}
+function buildBoss(){
+  const g = new THREE.Group();
+  const bodyM = new THREE.MeshStandardMaterial({color:0x453a2f, roughness:0.7, metalness:0.35});
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.85, 3.1, 14), bodyM);
+  body.position.y = 1.55; g.add(body);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.58, 0.09, 8, 20), ironMat);
+  rim.rotation.x = Math.PI/2; rim.position.y = 2.6; g.add(rim);
+  const rim2 = rim.clone(); rim2.position.y = 0.6; g.add(rim2);
+  const fireM = new THREE.MeshStandardMaterial({color:0xff7a2a, emissive:0xff5a00, emissiveIntensity:3});
+  const doorP = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.6), fireM);
+  doorP.position.set(0, 1.25, -1.72); doorP.rotation.y = Math.PI; g.add(doorP);
+  const arch = box(1.5, 0.25, 0.2, darkRockMat, 0, 2.2, -1.68, g);
+  const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.40, 1.5, 10), darkRockMat);
+  chim.position.set(0.7, 3.8, 0.3); g.add(chim);
+  for(const sx of [-1,1]){
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.6, 8), ironMat);
+    pipe.rotation.z = sx*0.7; pipe.position.set(sx*1.8, 2.0, 0); g.add(pipe);
+  }
+  eye(0.35, 2.75, -1.35, 0.06, g); eye(-0.35, 2.75, -1.35, 0.06, g);
+  const fireLight = new THREE.PointLight(0xff6a22, 60, 13, 1.8);
+  fireLight.position.set(0, 1.5, -2.6); g.add(fireLight);
+  g.userData.fireLight = fireLight; g.userData.fireMat = fireM;
+  // 残り火（上昇する粒子）
+  const N = 46, pos = new Float32Array(N*3);
+  for(let i=0;i<N;i++){ pos[i*3] = (Math.random()-0.5)*1.6; pos[i*3+1] = Math.random()*3.4; pos[i*3+2] = -1.2 - Math.random()*0.8; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const embers = new THREE.Points(geo, new THREE.PointsMaterial({color:0xffa245, size:0.09, transparent:true, opacity:0.9, depthWrite:false}));
+  g.add(embers); g.userData.embers = embers;
+  return g;
+}
+const ENEMY_POS = {
+  ishikumo:[0, -4.5], kunren:[0, -4.5], haiu:[-7.5, -49], morie:[7.5, -49],
+  tetsuu:[0, -75.5], bannin:[0, -106.5],
 };
+const enemies = {};
+function placeEnemy(key, mesh){
+  const [x, z] = ENEMY_POS[key];
+  mesh.position.set(x, 0, z);
+  mesh.rotation.y = Math.PI; // カメラ側（+Z）を向く
+  mesh.visible = false;
+  scene.add(mesh); enemies[key] = mesh;
+}
+placeEnemy("ishikumo", buildBug(false));
+placeEnemy("kunren", buildBug(true));
+placeEnemy("haiu", buildFeather(false));
+placeEnemy("tetsuu", buildFeather(true));
+placeEnemy("morie", buildGuardian());
+placeEnemy("bannin", buildBoss());
+const defeated = new Set();
+let currentEnemy = null;
+
+// 戦闘時、敵の足元に出る紋章リング
+const crest = new THREE.Mesh(new THREE.RingGeometry(1.02, 1.42, 40),
+  new THREE.MeshBasicMaterial({map:crestTex, transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false}));
+crest.rotation.x = -Math.PI/2; crest.position.y = 0.03;
+scene.add(crest);
+
+// ----------  effects ----------
+const slash = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.15),
+  new THREE.MeshBasicMaterial({map:slashTex, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide}));
+scene.add(slash);
+let slashT = 0;
+const burstN = 42, burstPos = new Float32Array(burstN*3), burstVel = [];
+for(let i=0;i<burstN;i++) burstVel.push(new THREE.Vector3());
+const burstGeo = new THREE.BufferGeometry();
+burstGeo.setAttribute("position", new THREE.BufferAttribute(burstPos, 3));
+const burst = new THREE.Points(burstGeo, new THREE.PointsMaterial({color:0xffc873, size:0.13, transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending}));
+scene.add(burst);
+let burstT = 0;
+function fireBurst(x, y, z, color){
+  burst.material.color.setHex(color || 0xffc873);
+  for(let i=0;i<burstN;i++){
+    burstPos[i*3] = x; burstPos[i*3+1] = y; burstPos[i*3+2] = z;
+    burstVel[i].set((Math.random()-0.5)*3.4, Math.random()*3.2 + 0.6, (Math.random()-0.5)*3.4);
+  }
+  burstGeo.attributes.position.needsUpdate = true;
+  burstT = 0.55; burst.material.opacity = 1;
+}
+const stopRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.12, 40),
+  new THREE.MeshBasicMaterial({map:crestTex, transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false}));
+scene.add(stopRing);
+let stopT = 0;
+// 粉塵
+(function dust(){
+  const N = 240, pos = new Float32Array(N*3);
+  for(let i=0;i<N;i++){
+    const zone = Math.random() < 0.5 ? [0, -2] : [0, -104];
+    pos[i*3] = zone[0] + (Math.random()-0.5)*11;
+    pos[i*3+1] = Math.random()*3.6 + 0.3;
+    pos[i*3+2] = zone[1] + (Math.random()-0.5)*11;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({color:0xd8b988, size:0.045, transparent:true, opacity:0.55, depthWrite:false}));
+  scene.add(pts); scene.userData.dust = pts;
+})();
+
+// ----------  player lantern ----------
+const lantern = new THREE.Group();
+const lPole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), woodMat);
+lPole.position.y = -0.5;
+const lBulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10),
+  new THREE.MeshStandardMaterial({color:0xffd9a0, emissive:0xffa845, emissiveIntensity:2.8}));
+const lSpr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.9}));
+lSpr.scale.setScalar(2.2);
+lantern.add(lPole, lBulb, lSpr);
+scene.add(lantern);
+
+// ----------  camera rig ----------
+const NODES = {
+  title:      {pos:[0, 3.4, 11.5],  look:[0, 1.2, -3],   enemy:null},
+  f1_battle:  {pos:[0, 2.1, 2.6],   look:[0, 1.0, -4.5], enemy:"ishikumo", battle:[0, 1.8, 0.4]},
+  f1_rest:    {pos:[0, 2.1, -14.5], look:[0, 1.0, -23.5], enemy:null},
+  f2_branch:  {pos:[0, 2.5, -29.5], look:[0, 1.3, -40],  enemy:null},
+  f2_left:    {pos:[-3.4, 2.1, -41.5], look:[-7.5, 1.1, -49], enemy:"haiu", battle:[-4.8, 1.9, -44.2]},
+  f2_workshop:{pos:[-7, 2.2, -49.5], look:[-7, 1.1, -58], enemy:null},
+  f2_right:   {pos:[3.4, 2.1, -41.5], look:[7.5, 1.2, -49], enemy:"morie", battle:[4.8, 1.9, -44.2]},
+  f2_chest:   {pos:[7, 2.2, -49.5],  look:[7, 1.1, -58],  enemy:null},
+  f3_battle:  {pos:[0, 2.2, -69.5],  look:[0, 1.1, -75.5], enemy:"tetsuu", battle:[0, 1.9, -71.8]},
+  f3_workshop:{pos:[0, 2.2, -82.5],  look:[0, 1.1, -89],  enemy:null},
+  boss:       {pos:[0, 2.7, -96.5],  look:[0, 1.7, -106], enemy:"bannin", battle:[0, 2.3, -99.5]},
+};
+let camPos = new THREE.Vector3(...NODES.title.pos);
+let camLook = new THREE.Vector3(...NODES.title.look);
+let anim = null;
+const veil = document.createElement("div");
+veil.style.cssText = "position:fixed;inset:0;z-index:40;pointer-events:all;background:transparent;display:none;";
+document.body.appendChild(veil);
+function flyTo(pos, look, dur){
+  anim = { t:0, dur:dur || 1.5,
+    fromPos: camPos.clone(), toPos: new THREE.Vector3(...pos),
+    fromLook: camLook.clone(), toLook: new THREE.Vector3(...look) };
+  veil.style.display = "block";
+}
+let curNode = "title";
+function showNodeEnemy(key){
+  for(const k in enemies) enemies[k].visible = false;
+  currentEnemy = null;
+  const node = NODES[key];
+  if(node && node.enemy && !defeated.has(node.enemy)){
+    enemies[node.enemy].visible = true; currentEnemy = node.enemy;
+  }
+}
+window.Scene3D = {
+  gotoNode(key){
+    if(!NODES[key]) return;
+    curNode = key;
+    showNodeEnemy(key);
+    crest.material.opacity = 0;
+    flyTo(NODES[key].pos, NODES[key].look, key==="title" ? 0.8 : 1.5);
+  },
+  engage(){
+    const node = NODES[curNode];
+    if(node && node.battle) flyTo(node.battle, node.look, 0.9);
+    if(currentEnemy){
+      const [x, z] = ENEMY_POS[currentEnemy];
+      crest.position.set(x, 0.03, z);
+    }
+  },
+  showEnemy(key){
+    if(defeated.has(key)) return;
+    for(const k in enemies) enemies[k].visible = (k === key);
+    if(enemies[key]) currentEnemy = key;
+  },
+  defeatEnemy(key){
+    defeated.add(key);
+    const m = enemies[key];
+    if(m){ fireBurst(m.position.x, 1.3, m.position.z, 0xffe2a8); m.visible = false; }
+    if(currentEnemy === key) currentEnemy = null;
+    crest.material.opacity = 0;
+  },
+  resetRun(){
+    defeated.clear();
+    crest.material.opacity = 0;
+  },
+  hit(){
+    if(!currentEnemy) return;
+    const m = enemies[currentEnemy];
+    slash.position.set(m.position.x, 1.35, m.position.z + 0.9);
+    slash.rotation.set(0, 0, (Math.random()*0.9 - 0.45));
+    slashT = 0.38;
+    fireBurst(m.position.x, 1.3, m.position.z + 0.4);
+    m.userData.hitT = 0.4;
+  },
+  stopped(){
+    if(!currentEnemy) return;
+    const m = enemies[currentEnemy];
+    stopRing.position.set(m.position.x, 1.4, m.position.z + 1.15);
+    stopRing.rotation.set(0, 0, 0);
+    stopT = 0.65;
+  },
+};
+
+// ----------  main loop ----------
 const clock = new THREE.Clock();
 function tick(){
   requestAnimationFrame(tick);
-  const t = clock.getElapsedTime();
-  lanternLight.intensity = 55 + Math.sin(t*11)*6 + Math.sin(t*23.7)*4;
-  bulb.material.emissiveIntensity = 2.2 + Math.sin(t*11)*0.35;
-  doors.forEach((d,i)=>{ d.material.emissiveIntensity = 0.45 + Math.sin(t*2 + i*2.1)*0.18; });
-  if(enemyGroup){
-    enemyGroup.position.y = Math.sin(t*1.6)*0.06;
-    let sx = 1, rz = 0;
-    if(hitT>0){ hitT -= 0.016; sx = 1 + Math.sin(hitT*30)*0.05; }
-    if(stopT>0){ stopT -= 0.016; rz = Math.sin(stopT*22)*0.07; }
-    enemyGroup.scale.setScalar(sx); enemyGroup.rotation.z = rz;
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  // camera travel
+  if(anim){
+    anim.t += dt / anim.dur;
+    const k = anim.t >= 1 ? 1 : (anim.t*anim.t*(3-2*anim.t));
+    camPos.lerpVectors(anim.fromPos, anim.toPos, k);
+    camLook.lerpVectors(anim.fromLook, anim.toLook, k);
+    if(anim.t >= 1){ anim = null; veil.style.display = "none"; }
+  }
+  camera.position.copy(camPos);
+  camera.position.y += Math.sin(t*1.7)*0.045; // 歩行の揺れ
+  camera.lookAt(camLook);
+  // lantern follows the camera
+  const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+  lantern.position.copy(camera.position).addScaledVector(fwd, 0.85);
+  lantern.position.y -= 1.05;
+  lanternLight.position.copy(lantern.position); lanternLight.position.y += 0.1;
+  lanternLight.intensity = 85 + Math.sin(t*11)*8 + Math.sin(t*23.7)*5;
+  lBulb.material.emissiveIntensity = 2.6 + Math.sin(t*11)*0.4;
+  // torches flicker
+  for(const tc of torches) if(tc.userData.flame) tc.userData.flame.material.emissiveIntensity = 2.6 + Math.sin(t*13 + tc.position.x*7)*0.5;
+  // enemies idle
+  for(const k in enemies){
+    const m = enemies[k];
+    if(!m.visible) continue;
+    if(m.userData.wings){
+      const f = Math.sin(t*5.2)*0.38;
+      m.userData.wings[0].rotation.z = f; m.userData.wings[1].rotation.z = -f;
+      m.position.y = Math.sin(t*2.1)*0.10 + 0.12;
+    }
+    if(m.userData.sway){ m.rotation.z = Math.sin(t*1.8)*0.045; m.position.y = Math.abs(Math.sin(t*2.6))*0.04; }
+    if(m.userData.fireLight){
+      m.userData.fireLight.intensity = 55 + Math.sin(t*9.3)*12 + Math.sin(t*27)*6;
+      m.userData.fireMat.emissiveIntensity = 2.7 + Math.sin(t*12.7)*0.5;
+      const pos = m.userData.embers.geometry.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        let y = pos.getY(i) + dt*(0.7 + (i%5)*0.13);
+        if(y > 3.6) y = 0.1;
+        pos.setY(i, y);
+      }
+      pos.needsUpdate = true;
+    }
+    if(m.userData.hitT > 0){
+      m.userData.hitT -= dt;
+      m.position.z = ENEMY_POS[k][1] + Math.sin(m.userData.hitT*26)*0.10;
+      if(m.userData.hitT <= 0) m.position.z = ENEMY_POS[k][1];
+    }
+  }
+  // crest pulse while in battle range
+  if(currentEnemy && !anim){
+    const node = NODES[curNode];
+    const inBattle = node && node.battle && camera.position.distanceTo(new THREE.Vector3(...node.battle)) < 0.6;
+    const target = inBattle ? 0.85 : 0;
+    crest.material.opacity += (target - crest.material.opacity) * 0.08;
+    crest.rotation.z = t * 0.25;
+  }
+  // slash
+  if(slashT > 0){
+    slashT -= dt;
+    slash.material.opacity = Math.max(0, slashT / 0.38) * 0.95;
+    slash.scale.setScalar(1 + (0.38 - slashT)*0.9);
+  } else slash.material.opacity = 0;
+  // burst particles
+  if(burstT > 0){
+    burstT -= dt;
+    for(let i=0;i<burstN;i++){
+      burstPos[i*3] += burstVel[i].x * dt;
+      burstPos[i*3+1] += burstVel[i].y * dt;
+      burstPos[i*3+2] += burstVel[i].z * dt;
+      burstVel[i].y -= 6.5 * dt;
+    }
+    burstGeo.attributes.position.needsUpdate = true;
+    burst.material.opacity = Math.max(0, burstT / 0.55);
+  } else burst.material.opacity = 0;
+  // stopped crest
+  if(stopT > 0){
+    stopT -= dt;
+    const k = 1 - stopT / 0.65;
+    stopRing.scale.setScalar(0.6 + k*1.15);
+    stopRing.material.opacity = stopT > 0.22 ? 0.95 : Math.max(0, stopT / 0.22) * 0.95;
+    if(stopT <= 0.22 && stopT + dt > 0.22 && currentEnemy){
+      const m = enemies[currentEnemy];
+      fireBurst(m.position.x, 1.4, m.position.z + 0.9, 0x7de89a);
+    }
+  } else stopRing.material.opacity = 0;
+  // dust drift
+  if(scene.userData.dust){
+    scene.userData.dust.rotation.y = t * 0.006;
   }
   renderer.render(scene, camera);
 }
+camera.position.copy(camPos); camera.lookAt(camLook);
 tick();
 </script>
 <script>

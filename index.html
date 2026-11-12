@@ -114,7 +114,7 @@
 </div>
 
 <script type="importmap">
-{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
+{"imports":{"three":"./three.module.js"}}
 </script>
 
 <script>
@@ -1016,9 +1016,9 @@ const ironMat = new THREE.MeshStandardMaterial({color:0x5d6672, roughness:0.45, 
 // ----------  lights ----------
 scene.add(new THREE.AmbientLight(0x40382c, 1.5));
 scene.add(new THREE.HemisphereLight(0x584a38, 0x14100c, 0.7));
-const lanternLight = new THREE.PointLight(0xffa845, 90, 17, 1.9);
+const lanternLight = new THREE.PointLight(0xffa845, 27, 16, 1.75);
 scene.add(lanternLight);
-const branchLight = new THREE.PointLight(0xff9a3c, 40, 14, 1.8);
+const branchLight = new THREE.PointLight(0xff9a3c, 20, 14, 1.8);
 branchLight.position.set(0, 3, -39); scene.add(branchLight);
 
 // ----------  world building helpers ----------
@@ -1069,20 +1069,20 @@ function pillar(x,z){
 function lightTrail(x1,z1,x2,z2,color){
   const len = Math.hypot(x2-x1, z2-z1);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, len),
-    new THREE.MeshStandardMaterial({color:0x181008, emissive:new THREE.Color(color), emissiveIntensity:1.5, transparent:true, opacity:0.85}));
+    new THREE.MeshStandardMaterial({color:0x181008, emissive:new THREE.Color(color), emissiveIntensity:0.85, transparent:true, opacity:0.8}));
   m.rotation.x = -Math.PI/2; m.rotation.z = Math.atan2(x2-x1, z2-z1);
   m.position.set((x1+x2)/2, 0.02, (z1+z2)/2); world.add(m); return m;
 }
 
 // ----------  dungeon layout ----------
 // 入口の間
-addFloor(0, -1, 11, 16); addWallX(0, -9.2, 11); addWallZ(-5.5, -1, 16); addWallZ(5.5, -1, 16);
+addFloor(0, -1, 11, 16); addWallX(-3.35, -9.2, 4.3); addWallX(3.35, -9.2, 4.3); addWallZ(-5.5, -1, 16); addWallZ(5.5, -1, 16);
 torches.push(torch(-5.1, 2.2, -6), torch(5.1, 2.2, -6), torch(-5.1, 2.2, 2), torch(5.1, 2.2, 2));
 // 通路1
 addFloor(0, -14, 4.8, 10); addWallZ(-2.4, -14, 10); addWallZ(2.4, -14, 10);
 torches.push(torch(-2.0, 2.2, -14), torch(2.0, 2.2, -17.5));
 // 休憩所
-addFloor(0, -23, 11, 8); addWallX(0, -27.2, 11); addWallZ(-5.5, -23, 8); addWallZ(5.5, -23, 8);
+addFloor(0, -23, 11, 8); addWallX(-3.35, -27.2, 4.3); addWallX(3.35, -27.2, 4.3); addWallZ(-5.5, -23, 8); addWallZ(5.5, -23, 8);
 (function restProps(){
   box(2.6, 0.14, 0.8, woodMat, -2.6, 0.55, -24.5); // ベンチ
   box(0.14, 0.55, 0.7, woodMat, -3.7, 0.27, -24.5); box(0.14, 0.55, 0.7, woodMat, -1.5, 0.27, -24.5);
@@ -1100,27 +1100,27 @@ addFloor(0, -23, 11, 8); addWallX(0, -27.2, 11); addWallZ(-5.5, -23, 8); addWall
 addFloor(0, -31, 4.8, 8); addWallZ(-2.4, -31, 8); addWallZ(2.4, -31, 8);
 torches.push(torch(2.0, 2.2, -31));
 // 分岐の広間
-addFloor(0, -39, 13, 8); addWallX(0, -43.2, 13); addWallZ(-6.5, -39, 8); addWallZ(6.5, -39, 8);
+addFloor(0, -39, 13, 8); addWallX(-5.55, -43.2, 1.9); addWallX(0, -43.2, 5.2); addWallX(5.55, -43.2, 1.9); addWallZ(-6.5, -39, 8); addWallZ(6.5, -39, 8);
 pillar(-4.6, -37); pillar(4.6, -37); pillar(-4.6, -41.5); pillar(4.6, -41.5);
 door(-3.6, -43.0, 0xffc873); door(3.6, -43.0, 0xff8a3c);
 lightTrail(-0.4, -37.5, -3.4, -42.6, 0xffc873);
 lightTrail(0.4, -37.5, 3.4, -42.6, 0xff8a3c);
 torches.push(torch(-6.1, 2.3, -36), torch(6.1, 2.3, -36));
 // 左の戦闘区画（灰羽）と工房A
-addFloor(-6.5, -47.5, 9, 9); addWallZ(-11, -47.5, 9); addWallX(-6.5, -52.2, 9);
+addFloor(-6.5, -47.5, 9, 9); addWallZ(-11, -47.5, 9); addWallX(-9.55, -52.2, 2.9); addWallX(-3.95, -52.2, 3.9);
 addFloor(-7, -57, 10, 10); addWallX(-7, -62.2, 10); addWallZ(-12, -57, 10); addWallZ(-2, -57, 10);
 // 右の戦闘区画（石の守衛）と宝箱の間
-addFloor(6.5, -47.5, 9, 9); addWallZ(11, -47.5, 9); addWallX(6.5, -52.2, 9);
+addFloor(6.5, -47.5, 9, 9); addWallZ(11, -47.5, 9); addWallX(3.95, -52.2, 3.9); addWallX(9.55, -52.2, 2.9);
 addFloor(7, -57, 10, 10); addWallX(7, -62.2, 10); addWallZ(2, -57, 10); addWallZ(12, -57, 10);
 // 合流通路
 addFloor(-7, -66, 3.2, 8); addFloor(7, -66, 3.2, 8);
 addFloor(0, -71, 17.2, 2.6);
 // 地下3階の間（鉄羽）
-addFloor(0, -75.5, 12, 9); addWallX(0, -80.2, 12); addWallZ(-6, -75.5, 9); addWallZ(6, -75.5, 9);
+addFloor(0, -75.5, 12, 9); addWallX(-3.6, -80.2, 4.8); addWallX(3.6, -80.2, 4.8); addWallZ(-6, -75.5, 9); addWallZ(6, -75.5, 9);
 torches.push(torch(-5.6, 2.2, -73), torch(5.6, 2.2, -73), torch(-5.6, 2.2, -78), torch(5.6, 2.2, -78));
 // 通路3と最後の工房
 addFloor(0, -82, 4.8, 4); addWallZ(-2.4, -82, 4); addWallZ(2.4, -82, 4);
-addFloor(0, -88, 12, 8); addWallX(0, -92.2, 12); addWallZ(-6, -88, 8); addWallZ(6, -88, 8);
+addFloor(0, -88, 12, 8); addWallX(-3.6, -92.2, 4.8); addWallX(3.6, -92.2, 4.8); addWallZ(-6, -88, 8); addWallZ(6, -88, 8);
 // 通路4とボスの間
 addFloor(0, -95, 5.2, 6); addWallZ(-2.6, -95, 6); addWallZ(2.6, -95, 6);
 addFloor(0, -104, 15, 12); addWallX(0, -110.2, 15); addWallZ(-7.5, -104, 12); addWallZ(7.5, -104, 12);
@@ -1161,23 +1161,42 @@ workshopProps(-7, -58); workshopProps(0, -89);
 // ----------  enemies ----------
 function eye(x,y,z,r,parent){
   const e = new THREE.Mesh(new THREE.SphereGeometry(r||0.07, 8, 8),
-    new THREE.MeshStandardMaterial({color:0xff5545, emissive:0xdd3322, emissiveIntensity:2}));
+    new THREE.MeshStandardMaterial({color:0x1a0505, emissive:0xd40f00, emissiveIntensity:1.5}));
   e.position.set(x,y,z); parent.add(e); return e;
 }
 function buildBug(big){
   const g = new THREE.Group(); const s = big ? 1.25 : 1;
+  const shellM = new THREE.MeshStandardMaterial({color:0x8a8178, roughness:0.9});
+  const shellM2 = new THREE.MeshStandardMaterial({color:0x6d655b, roughness:0.95});
+  // 体節（頭側が小さく、後ろが大きい）＋節ごとの溝リング
+  const segZ = [0, 0.55, 1.08, 1.58, 2.02];
+  const segR = [0.46, 0.60, 0.70, 0.74, 0.62];
   for(let i=0;i<5;i++){
-    const seg = new THREE.Mesh(new THREE.SphereGeometry((0.62 - i*0.07)*s, 14, 10), i%2 ? darkRockMat : rockMat);
-    seg.position.set(0, (0.5 - i*0.03)*s, (i*0.52 - 0.4)*s); seg.scale.y = 0.82; g.add(seg);
+    const seg = new THREE.Mesh(new THREE.SphereGeometry(segR[i]*s, 16, 12), i%2 ? shellM2 : shellM);
+    seg.position.set(0, (0.52 - i*0.02)*s, (segZ[i]-0.5)*s); seg.scale.set(1.12, 0.82, 1); g.add(seg);
+    if(i>0){
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(segR[i]*0.94*s, 0.035*s, 6, 18), darkRockMat);
+      ring.position.set(0, (0.52 - i*0.02)*s, (segZ[i]-0.5-0.24)*s); ring.scale.y = 0.82; g.add(ring);
+    }
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.09*s, 0.30*s, 6), darkRockMat);
+    spike.position.set(0, (0.52 + segR[i]*0.78)*s, (segZ[i]-0.5)*s); g.add(spike);
   }
+  // 頭板（平たい岩の板）と大きな赤い目
+  const plate = new THREE.Mesh(new THREE.SphereGeometry(0.5*s, 14, 10), shellM2);
+  plate.scale.set(1.25, 0.62, 0.8); plate.position.set(0, 0.42*s, -0.95*s); g.add(plate);
+  eye(0.20*s, 0.55*s, -1.40*s, 0.095*s, g); eye(-0.20*s, 0.55*s, -1.40*s, 0.095*s, g);
+  // 顎（前方下向きの2本の牙）
+  for(const sx of [-1,1]){
+    const fang = new THREE.Mesh(new THREE.ConeGeometry(0.085*s, 0.42*s, 6), darkRockMat);
+    fang.rotation.x = Math.PI/1.7; fang.position.set(sx*0.22*s, 0.22*s, -1.25*s); g.add(fang);
+  }
+  // 太い脚（前脚は前方へ、3対）
   for(let i=0;i<3;i++) for(const sx of [-1,1]){
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045*s, 0.03*s, 0.85*s), darkRockMat);
-    leg.position.set(sx*0.62*s, 0.3*s, (i*0.5 - 0.3)*s); leg.rotation.z = sx*0.9; g.add(leg);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09*s, 0.05*s, 1.05*s),
+      new THREE.MeshStandardMaterial({color:0x4a423a, roughness:1}));
+    leg.position.set(sx*0.72*s, 0.32*s, (segZ[i+1]-0.55)*s);
+    leg.rotation.z = sx*1.05; leg.rotation.x = (i-1)*-0.18; g.add(leg);
   }
-  eye(0.22*s, 0.62*s, -0.78*s, 0.075*s, g); eye(-0.22*s, 0.62*s, -0.78*s, 0.075*s, g);
-  const m1 = new THREE.Mesh(new THREE.ConeGeometry(0.09*s, 0.34*s, 6), darkRockMat);
-  m1.rotation.x = Math.PI/2.3; m1.position.set(0.2*s, 0.34*s, -0.85*s); g.add(m1);
-  const m2 = m1.clone(); m2.position.x = -0.2*s; g.add(m2);
   g.userData.sway = true;
   return g;
 }
@@ -1212,13 +1231,16 @@ function buildFeather(metal){
 }
 function buildGuardian(){
   const g = new THREE.Group();
-  box(2.0, 0.4, 1.5, darkRockMat, 0, 0.2, 0, g); // 台座
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 1.02, 1.9, 6), rockMat);
-  torso.position.y = 1.6; g.add(torso);
-  const head = box(0.72, 0.62, 0.72, darkRockMat, 0, 2.85, 0, g);
+  box(2.4, 0.28, 1.9, darkRockMat, 0, 0.14, 0, g); // 台座（下段）
+  box(2.0, 0.30, 1.5, darkRockMat, 0, 0.42, 0, g); // 台座（上段）
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.80, 1.0, 1.75, 6), rockMat);
+  torso.position.y = 1.55; g.add(torso);
+  box(2.0, 0.38, 0.95, darkRockMat, 0, 2.5, 0, g); // 肩の梁
+  const head = box(0.85, 0.72, 0.8, darkRockMat, 0, 3.0, 0, g);
+  box(0.95, 0.16, 0.9, rockMat, 0, 3.42, 0, g); // 頭の冠
   const visor = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.09),
     new THREE.MeshStandardMaterial({color:0x331f08, emissive:0xffb545, emissiveIntensity:2.2}));
-  visor.position.set(0, 2.9, -0.37); visor.rotation.y = Math.PI; g.add(visor);
+  visor.position.set(0, 3.05, -0.41); visor.rotation.y = Math.PI; g.add(visor);
   for(const sx of [-1,1]){
     const arm = new THREE.Group();
     const up = box(0.42, 1.1, 0.42, rockMat, 0, -0.5, 0, arm);
@@ -1226,12 +1248,12 @@ function buildGuardian(){
     fist.position.y = -1.25; arm.add(fist);
     arm.position.set(sx*1.15, 2.35, 0); arm.rotation.z = sx*0.12; g.add(arm);
   }
-  box(1.15, 1.5, 0.18, darkRockMat, -1.35, 1.35, -0.35, g); // 盾
+  box(1.2, 1.55, 0.18, darkRockMat, -1.05, 1.3, -0.62, g); // 盾（前面）
   const crackM = new THREE.MeshStandardMaterial({color:0x2a1a08, emissive:0xff8a3c, emissiveIntensity:2.0});
   const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.03), crackM);
-  c1.position.set(0.22, 1.7, -0.56); c1.rotation.y = Math.PI; g.add(c1);
+  c1.position.set(0.22, 1.7, -0.97); c1.rotation.y = Math.PI; g.add(c1);
   const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 0.03), crackM);
-  c2.position.set(0.02, 2.05, -0.56); c2.rotation.y = Math.PI; g.add(c2);
+  c2.position.set(0.02, 2.05, -0.97); c2.rotation.y = Math.PI; g.add(c2);
   const c3 = c1.clone(); c3.position.x = -0.3; c3.scale.y = 0.6; g.add(c3);
   return g;
 }
@@ -1243,7 +1265,7 @@ function buildBoss(){
   const rim = new THREE.Mesh(new THREE.TorusGeometry(1.58, 0.09, 8, 20), ironMat);
   rim.rotation.x = Math.PI/2; rim.position.y = 2.6; g.add(rim);
   const rim2 = rim.clone(); rim2.position.y = 0.6; g.add(rim2);
-  const fireM = new THREE.MeshStandardMaterial({color:0xff7a2a, emissive:0xff5a00, emissiveIntensity:3});
+  const fireM = new THREE.MeshStandardMaterial({color:0xff7a2a, emissive:0xff6a1a, emissiveIntensity:2.3});
   const doorP = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.6), fireM);
   doorP.position.set(0, 1.25, -1.72); doorP.rotation.y = Math.PI; g.add(doorP);
   const arch = box(1.5, 0.25, 0.2, darkRockMat, 0, 2.2, -1.68, g);
@@ -1337,23 +1359,23 @@ let stopT = 0;
 const lantern = new THREE.Group();
 const lPole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), woodMat);
 lPole.position.y = -0.5;
-const lBulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10),
+const lBulb = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 10),
   new THREE.MeshStandardMaterial({color:0xffd9a0, emissive:0xffa845, emissiveIntensity:2.8}));
 const lSpr = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, transparent:true, depthWrite:false, opacity:0.9}));
-lSpr.scale.setScalar(2.2);
+lSpr.scale.setScalar(1.05);
 lantern.add(lPole, lBulb, lSpr);
 scene.add(lantern);
 
 // ----------  camera rig ----------
 const NODES = {
-  title:      {pos:[0, 3.4, 11.5],  look:[0, 1.2, -3],   enemy:null},
-  f1_battle:  {pos:[0, 2.1, 2.6],   look:[0, 1.0, -4.5], enemy:"ishikumo", battle:[0, 1.8, 0.4]},
+  title:      {pos:[0, 3.2, 9.0],   look:[0, 1.1, -3],   enemy:"ishikumo"},
+  f1_battle:  {pos:[0, 2.1, 2.6],   look:[0, 1.0, -4.5], enemy:"ishikumo", battle:[0, 1.75, -0.5]},
   f1_rest:    {pos:[0, 2.1, -14.5], look:[0, 1.0, -23.5], enemy:null},
   f2_branch:  {pos:[0, 2.5, -29.5], look:[0, 1.3, -40],  enemy:null},
   f2_left:    {pos:[-3.4, 2.1, -41.5], look:[-7.5, 1.1, -49], enemy:"haiu", battle:[-4.8, 1.9, -44.2]},
-  f2_workshop:{pos:[-7, 2.2, -49.5], look:[-7, 1.1, -58], enemy:null},
+  f2_workshop:{pos:[-7, 2.2, -54.5], look:[-7, 1.1, -58.5], enemy:null},
   f2_right:   {pos:[3.4, 2.1, -41.5], look:[7.5, 1.2, -49], enemy:"morie", battle:[4.8, 1.9, -44.2]},
-  f2_chest:   {pos:[7, 2.2, -49.5],  look:[7, 1.1, -58],  enemy:null},
+  f2_chest:   {pos:[7, 2.2, -54.5],  look:[7, 1.1, -58.5],  enemy:null},
   f3_battle:  {pos:[0, 2.2, -69.5],  look:[0, 1.1, -75.5], enemy:"tetsuu", battle:[0, 1.9, -71.8]},
   f3_workshop:{pos:[0, 2.2, -82.5],  look:[0, 1.1, -89],  enemy:null},
   boss:       {pos:[0, 2.7, -96.5],  look:[0, 1.7, -106], enemy:"bannin", battle:[0, 2.3, -99.5]},
@@ -1365,7 +1387,7 @@ const veil = document.createElement("div");
 veil.style.cssText = "position:fixed;inset:0;z-index:40;pointer-events:all;background:transparent;display:none;";
 document.body.appendChild(veil);
 function flyTo(pos, look, dur){
-  anim = { t:0, dur:dur || 1.5,
+  anim = { start: performance.now(), dur:(dur || 1.5) * 1000,
     fromPos: camPos.clone(), toPos: new THREE.Vector3(...pos),
     fromLook: camLook.clone(), toLook: new THREE.Vector3(...look) };
   veil.style.display = "block";
@@ -1437,21 +1459,22 @@ function tick(){
   const t = clock.elapsedTime;
   // camera travel
   if(anim){
-    anim.t += dt / anim.dur;
-    const k = anim.t >= 1 ? 1 : (anim.t*anim.t*(3-2*anim.t));
+    const raw = Math.min(1, (performance.now() - anim.start) / anim.dur);
+    const k = raw*raw*(3-2*raw);
     camPos.lerpVectors(anim.fromPos, anim.toPos, k);
     camLook.lerpVectors(anim.fromLook, anim.toLook, k);
-    if(anim.t >= 1){ anim = null; veil.style.display = "none"; }
+    if(raw >= 1){ anim = null; veil.style.display = "none"; }
   }
   camera.position.copy(camPos);
   camera.position.y += Math.sin(t*1.7)*0.045; // 歩行の揺れ
   camera.lookAt(camLook);
   // lantern follows the camera
   const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
-  lantern.position.copy(camera.position).addScaledVector(fwd, 0.85);
-  lantern.position.y -= 1.05;
+  const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0,1,0)).normalize();
+  lantern.position.copy(camera.position).addScaledVector(fwd, 1.5).addScaledVector(right, 0.36);
+  lantern.position.y -= 0.44;
   lanternLight.position.copy(lantern.position); lanternLight.position.y += 0.1;
-  lanternLight.intensity = 85 + Math.sin(t*11)*8 + Math.sin(t*23.7)*5;
+  lanternLight.intensity = 26 + Math.sin(t*11)*3 + Math.sin(t*23.7)*1.6;
   lBulb.material.emissiveIntensity = 2.6 + Math.sin(t*11)*0.4;
   // torches flicker
   for(const tc of torches) if(tc.userData.flame) tc.userData.flame.material.emissiveIntensity = 2.6 + Math.sin(t*13 + tc.position.x*7)*0.5;
@@ -1467,7 +1490,7 @@ function tick(){
     if(m.userData.sway){ m.rotation.z = Math.sin(t*1.8)*0.045; m.position.y = Math.abs(Math.sin(t*2.6))*0.04; }
     if(m.userData.fireLight){
       m.userData.fireLight.intensity = 55 + Math.sin(t*9.3)*12 + Math.sin(t*27)*6;
-      m.userData.fireMat.emissiveIntensity = 2.7 + Math.sin(t*12.7)*0.5;
+      m.userData.fireMat.emissiveIntensity = 2.1 + Math.sin(t*12.7)*0.4;
       const pos = m.userData.embers.geometry.attributes.position;
       for(let i=0;i<pos.count;i++){
         let y = pos.getY(i) + dt*(0.7 + (i%5)*0.13);
